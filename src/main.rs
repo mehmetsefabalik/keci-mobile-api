@@ -6,6 +6,7 @@ mod service;
 
 pub struct AppState {
   listing_collection: Collection,
+  product_collection: Collection,
 }
 
 #[macro_use]
@@ -17,13 +18,16 @@ async fn main() -> std::io::Result<()> {
   let client = Client::with_options(client_options).unwrap();
   let db = client.database(dotenv!("DB_NAME"));
   let listing_collection = db.collection(dotenv!("DB_LISTING_COLLECTION"));
+  let product_collection = db.collection(dotenv!("DB_PRODUCT_COLLECTION"));
 
   HttpServer::new(move || {
     App::new()
       .data(AppState {
         listing_collection: listing_collection.clone(),
+        product_collection: product_collection.clone(),
       })
-      .service(web::scope("/listing").route("", web::get().to(controller::listing::get)))
+      .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
+      .service(web::scope("/products").route("", web::get().to(controller::product::get)))
   })
   .bind("0.0.0.0:3003")?
   .run()
