@@ -30,7 +30,6 @@ async fn main() -> std::io::Result<()> {
         content_collection: content_collection.clone(),
       })
       .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
-      .service(web::scope("/products").route("", web::get().to(controller::product::get)))
       .service(web::scope("/contents").route("", web::get().to(controller::content::get)))
   })
   .bind("0.0.0.0:3003")?
