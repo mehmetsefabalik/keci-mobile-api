@@ -1,0 +1,41 @@
+use bson::{doc, to_bson, Bson};
+use mongodb::{error::{Error, ErrorKind}, Collection, results::InsertOneResult};
+use serde::{Deserialize, Serialize};
+use actix_web::web::Json;
+use crate::controller::user::CreateUser;
+
+pub fn get(
+  collection: Collection,
+  user: Json<CreateUser>,
+) -> Result<(Option<bson::ordered::OrderedDocument>, Collection, Json<CreateUser>), Error> {
+  match collection.find_one(doc! {"phone": String::from(&user.phone)}, None) {
+    Ok(result) => Ok((result, collection, user)),
+    Err(e) => Err(e)
+  }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct User {
+  phone: String,
+  password: String,
+}
+
+pub fn create(
+  collection: Collection,
+  phone: &str,
+  password: &str,
+) -> Result<InsertOneResult, Error> {
+  let user = User {
+    phone: String::from(phone),
+    password: String::from(password),
+  };
+  let serialized_user = to_bson(&user).unwrap();
+  if let Bson::Document(document) = serialized_user {
+    match collection.insert_one(document, None) {
+      Ok(insert_result) => Ok(insert_result),
+      Err(e) => Err(e),
+    }
+  } else {
+    Err(Error::from(ErrorKind::OperationError {message: String::from("Can not create User")}))
+  }
+}
