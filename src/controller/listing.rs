@@ -1,6 +1,7 @@
-use actix_web::{error, http, web, HttpResponse, Responder};
+use actix_web::{error, http, web, HttpResponse, Responder, HttpRequest};
 
-pub async fn get(app_data: web::Data<crate::AppState>) -> impl Responder {
+pub async fn get(req: HttpRequest, app_data: web::Data<crate::AppState>) -> impl Responder {
+  println!("user_id: {:?}", req.headers().get("user_id"));
   web::block(move || crate::service::listing::get(app_data.listing_collection.clone()))
     .await
     .map(|result| HttpResponse::Ok().json(result))

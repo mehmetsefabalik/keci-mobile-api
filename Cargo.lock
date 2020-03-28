@@ -1122,6 +1122,7 @@ name = "mobile-api"
 version = "0.1.0"
 dependencies = [
  "actix-rt",
+ "actix-service",
  "actix-web",
  "bson",
  "dotenv_codegen",
