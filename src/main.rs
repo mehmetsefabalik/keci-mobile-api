@@ -30,9 +30,8 @@ async fn main() -> std::io::Result<()> {
         content_collection: content_collection.clone(),
         user_collection: user_collection.clone(),
       })
-      .wrap(middleware::user::Resolve)
-      .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
-      .service(web::scope("/contents").route("", web::get().to(controller::content::get)))
+      .service(web::scope("/listings").wrap(middleware::user::Resolve).route("", web::get().to(controller::listing::get)))
+      .service(web::scope("/contents").wrap(middleware::user::Resolve).route("", web::get().to(controller::content::get)))
       .service(web::scope("/users").route("", web::post().to(controller::user::create)))
   })
   .bind("0.0.0.0:3003")?

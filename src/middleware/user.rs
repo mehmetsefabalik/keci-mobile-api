@@ -84,14 +84,12 @@ where
           aud: None,
           algorithms: vec![Algorithm::HS256],
         };
-        println!("jwt secret: {:?}", dotenv!("JWT_SECRET"));
         match decode::<crate::controller::user::Claims>(
           token,
           &DecodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
           &validation,
         ) {
           Ok(decoded_token) => {
-            println!("decoded_token: {:?}", decoded_token);
             req.headers_mut().insert(
               header::HeaderName::from_static("user_id"),
               header::HeaderValue::from_str(&decoded_token.claims.sub).unwrap(),
