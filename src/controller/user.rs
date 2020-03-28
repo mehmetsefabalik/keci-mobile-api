@@ -12,6 +12,7 @@ pub struct CreateUser {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
   pub sub: String,
+  pub user_type: String,
 }
 
 pub async fn create(
@@ -30,6 +31,7 @@ pub async fn create(
               bson::Bson::ObjectId(id) => {
                 let claims = Claims {
                   sub: id.to_string(),
+                  user_type: String::from("registered")
                 };
                 let token = encode(
                   &Header::default(),

@@ -2,8 +2,8 @@ use actix_web::{web, App, HttpServer};
 use mongodb::{options::ClientOptions, Client, Collection};
 
 mod controller;
-mod service;
 mod middleware;
+mod service;
 
 pub struct AppState {
   listing_collection: Collection,
@@ -30,8 +30,7 @@ async fn main() -> std::io::Result<()> {
         content_collection: content_collection.clone(),
         user_collection: user_collection.clone(),
       })
-      .wrap(middleware::user::ResolveId)
-      .wrap(middleware::user::ResolveToken)
+      .wrap(middleware::user::Resolve)
       .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
       .service(web::scope("/contents").route("", web::get().to(controller::content::get)))
       .service(web::scope("/users").route("", web::post().to(controller::user::create)))
