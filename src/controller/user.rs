@@ -10,8 +10,8 @@ pub struct CreateUser {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-  sub: String,
+pub struct Claims {
+  pub sub: String,
 }
 
 pub async fn create(

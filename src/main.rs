@@ -30,6 +30,7 @@ async fn main() -> std::io::Result<()> {
         content_collection: content_collection.clone(),
         user_collection: user_collection.clone(),
       })
+      .wrap(middleware::user::ResolveId)
       .wrap(middleware::user::ResolveToken)
       .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
       .service(web::scope("/contents").route("", web::get().to(controller::content::get)))

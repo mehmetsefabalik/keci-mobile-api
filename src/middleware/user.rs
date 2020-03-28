@@ -5,6 +5,7 @@ use actix_service::{Service, Transform};
 use actix_web::{dev::ServiceRequest, dev::ServiceResponse, http::header, Error};
 use futures::future::{ok, Ready};
 use futures::Future;
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
 pub struct ResolveToken;
 
@@ -125,14 +126,38 @@ where
       .remove(header::HeaderName::from_static("user_id"));
     let headers = req.headers().clone();
     match headers.get("token") {
-      Some(token) => {
-        let split = token.to_str().unwrap().split(".");
-        let token_content: Vec<&str> = split.collect();
-        if token_content.len() == 3 {
-          let payload = token_content[1];
-          
+      Some(token) => match token.to_str() {
+        Ok(token_str) => {
+          let split = token_str.split(".");
+          let token_content: Vec<&str> = split.collect();
+          if token_content.len() == 3 {
+            let validation = Validation {
+              leeway: 0,
+              validate_exp: false,
+              validate_nbf: false,
+              iss: None,
+              sub: None,
+              aud: None,
+              algorithms: vec![Algorithm::HS256],
+            };
+            println!("jwt secret: {:?}", dotenv!("JWT_SECRET"));
+            match decode::<crate::controller::user::Claims>(
+              token_str,
+              &DecodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
+              &validation,
+            ) {
+              Ok(decoded_token) => {
+                req.headers_mut().insert(
+                  header::HeaderName::from_static("user_id"),
+                  header::HeaderValue::from_str(&decoded_token.claims.sub).unwrap(),
+                );
+              }
+              Err(e) => println!("Error while decoding token: {:?}", e),
+            }
+          }
         }
-      }
+        Err(e) => println!("Error while stringifying token: {:?}", e),
+      },
       None => {}
     };
 
