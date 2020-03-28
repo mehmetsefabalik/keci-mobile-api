@@ -26,6 +26,7 @@ pub async fn create(
         Some(_) => HttpResponse::BadRequest().json({}),
         None => {
           let hashed = hash(&user.password, DEFAULT_COST).unwrap();
+          // TODO: call with web::block
           match crate::service::user::create(user_collection, &user.phone, &hashed) {
             Ok(create_user_result) => match create_user_result.inserted_id {
               bson::Bson::ObjectId(id) => {
