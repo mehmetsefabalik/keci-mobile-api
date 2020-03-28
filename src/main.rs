@@ -27,7 +27,7 @@ async fn main() -> std::io::Result<()> {
         listing_collection: listing_collection.clone(),
         content_collection: content_collection.clone(),
       })
-      .wrap(middleware::user::Resolve)
+      .wrap(middleware::user::ResolveToken)
       .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
       .service(web::scope("/contents").route("", web::get().to(controller::content::get)))
   })
