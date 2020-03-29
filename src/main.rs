@@ -35,12 +35,10 @@ async fn main() -> std::io::Result<()> {
       })
       .service(
         web::scope("/listings")
-          .wrap(middleware::user::Resolve)
           .route("", web::get().to(controller::listing::get)),
       )
       .service(
         web::scope("/contents")
-          .wrap(middleware::user::Resolve)
           .route("", web::get().to(controller::content::get)),
       )
       .service(
