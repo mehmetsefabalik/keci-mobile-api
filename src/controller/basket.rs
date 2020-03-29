@@ -35,22 +35,35 @@ pub async fn add(
 
                 // check whether product is already in active basket
                 println!("active_basket: {:?}", active_basket);
-
-                HttpResponse::Ok().json("user has active basket")
+                match crate::service::basket::increment_product_count(
+                  collection,
+                  &product_id,
+                  &user_id,
+                ) {
+                  Ok(update) => {
+                    println!("update: {:?}", update);
+                    HttpResponse::Ok().json(active_basket)
+                  }
+                  Err(e) => {
+                    println!("Error while incrementing product count,  {:?}", e);
+                    HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+                  }
+                }
               }
               None => {
                 // user does not have active basket
                 // TODO: wrap with web::block
-                let basket_result = crate::service::basket::create(collection, &product_id, &user_id);
+                let basket_result =
+                  crate::service::basket::create(collection, &product_id, &user_id);
                 match basket_result {
                   Ok(basket) => {
                     let response = Response {
                       id: basket.inserted_id,
-                      message: String::from("created active basket fro user")
+                      message: String::from("created active basket fro user"),
                     };
                     HttpResponse::Ok().json(response)
-                  },
-                  Err(_e) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+                  }
+                  Err(_e) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
                 }
               }
             }

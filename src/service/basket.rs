@@ -1,7 +1,7 @@
 use bson::{doc, oid::ObjectId, ordered::OrderedDocument, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
-  results::InsertOneResult,
+  results::{InsertOneResult, UpdateResult},
   Collection,
 };
 use serde::{Deserialize, Serialize};
@@ -57,4 +57,12 @@ pub fn create(
       message: String::from("Can not create basket"),
     }))
   }
+}
+
+pub fn increment_product_count(collection: Collection, product_id: &str, user_id: &str) -> Result<UpdateResult, Error> {
+  collection.update_one(doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"), "content.product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "active": true}, doc!{"$inc": {"content.$.count": 1}}, None)
+}
+
+pub fn get_active_with_product_id(collection: Collection, product_id: &str, user_id: &str) -> Result<Option<OrderedDocument>, Error> {
+  collection.find_one(doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"), "content.product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "active": true}, None)
 }
