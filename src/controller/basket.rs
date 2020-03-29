@@ -1,4 +1,5 @@
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
+use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -34,21 +35,17 @@ pub async fn add(
                 // user has active basket
 
                 // check whether product is already in active basket
+                // TODO: wrap with web block
                 match crate::service::basket::increment_product_count(
-                  collection,
-                  product_id,
-                  user_id,
+                  collection, product_id, user_id,
                 ) {
                   Ok((update, collection, product_id, user_id)) => match update {
-                    Some(doc) => {
-                      HttpResponse::Ok().json(doc)
-                    },
+                    Some(doc) => HttpResponse::Ok().json(doc),
                     None => {
                       // product is not present in basket
+                      // TODO: wrap with web::block
                       match crate::service::basket::add_item(collection, &product_id, &user_id) {
-                        Ok(_update) => {
-                          HttpResponse::Ok().json(active_basket)
-                        },
+                        Ok(_update) => HttpResponse::Ok().json(active_basket),
                         Err(e) => {
                           println!("Error while adding item to basket, {:?}", e);
                           HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
@@ -92,7 +89,48 @@ pub async fn add(
     }
     None => {
       // anon
-      Ok(HttpResponse::Ok().json("anon"))
+      // TODO: wrap with web::block
+      match crate::service::user::create_anon(app_data.user_collection.clone()) {
+        Ok(user_result) => match user_result.inserted_id {
+          bson::Bson::ObjectId(id) => {
+            let claims = crate::controller::user::Claims {
+              sub: id.to_string(),
+              user_type: String::from("registered"),
+            };
+            let token = encode(
+              &Header::default(),
+              &claims,
+              &EncodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
+            )
+            .unwrap();
+            let cookie = format!("access_token={}", token);
+            // TODO: wrap with web::block
+            match crate::service::basket::create(
+              app_data.basket_collection.clone(),
+              &product_id,
+              &id.to_string(),
+            ) {
+              Ok(basket_result) => Ok(
+                HttpResponse::Ok()
+                  .header(
+                    "Set-Cookie",
+                    http::header::HeaderValue::from_str(&cookie).unwrap(),
+                  )
+                  .json(basket_result.inserted_id),
+              ),
+              Err(e) => {
+                println!("Error while creating basket for anon user, {:?}", e);
+                Ok(HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR))
+              }
+            }
+          }
+          _ => Ok(HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)),
+        },
+        Err(e) => {
+          println!("Error while creating anon user: {:?}", e);
+          Ok(HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR))
+        }
+      }
     }
   }
 }

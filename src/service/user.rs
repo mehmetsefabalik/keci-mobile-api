@@ -1,16 +1,27 @@
-use bson::{doc, to_bson, Bson};
-use mongodb::{error::{Error, ErrorKind}, Collection, results::InsertOneResult};
-use serde::{Deserialize, Serialize};
-use actix_web::web::Json;
 use crate::controller::user::CreateUser;
+use actix_web::web::Json;
+use bson::{doc, to_bson, Bson};
+use mongodb::{
+  error::{Error, ErrorKind},
+  results::InsertOneResult,
+  Collection,
+};
+use serde::{Deserialize, Serialize};
 
 pub fn get(
   collection: Collection,
   user: Json<CreateUser>,
-) -> Result<(Option<bson::ordered::OrderedDocument>, Collection, Json<CreateUser>), Error> {
+) -> Result<
+  (
+    Option<bson::ordered::OrderedDocument>,
+    Collection,
+    Json<CreateUser>,
+  ),
+  Error,
+> {
   match collection.find_one(doc! {"phone": String::from(&user.phone)}, None) {
     Ok(result) => Ok((result, collection, user)),
-    Err(e) => Err(e)
+    Err(e) => Err(e),
   }
 }
 
@@ -36,6 +47,12 @@ pub fn create(
       Err(e) => Err(e),
     }
   } else {
-    Err(Error::from(ErrorKind::OperationError {message: String::from("Can not create User")}))
+    Err(Error::from(ErrorKind::OperationError {
+      message: String::from("Can not create User"),
+    }))
   }
+}
+
+pub fn create_anon(collection: Collection) -> Result<InsertOneResult, Error> {
+  collection.insert_one(doc! {}, None)
 }
