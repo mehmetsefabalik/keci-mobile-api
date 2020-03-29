@@ -1,5 +1,5 @@
 use actix_web::{error, http, web, HttpResponse, Responder};
-use bcrypt::{hash, DEFAULT_COST};
+use bcrypt::hash;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 
@@ -25,14 +25,15 @@ pub async fn create(
       |(get_user_result, user_collection, user)| match get_user_result {
         Some(_) => HttpResponse::BadRequest().json({}),
         None => {
-          let hashed = hash(&user.password, DEFAULT_COST).unwrap();
+          // TODO: CPU intensive task, wrap with web::block
+          let hashed = hash(&user.password, 4).unwrap();
           // TODO: call with web::block
           match crate::service::user::create(user_collection, &user.phone, &hashed) {
             Ok(create_user_result) => match create_user_result.inserted_id {
               bson::Bson::ObjectId(id) => {
                 let claims = Claims {
                   sub: id.to_string(),
-                  user_type: String::from("registered")
+                  user_type: String::from("registered"),
                 };
                 let token = encode(
                   &Header::default(),
