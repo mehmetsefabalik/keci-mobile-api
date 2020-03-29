@@ -1,4 +1,4 @@
-use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +77,15 @@ pub async fn add(
               }
             }
           })
+          .map_err(|err| match err {
+            error::BlockingError::Error(error) => {
+              println!("error, {:?}", error);
+              HttpResponse::BadRequest().body("Error while getting active basket")
+            }
+            error::BlockingError::Canceled => {
+              HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+            }
+          })
         }
         Err(e) => {
           println!(
@@ -132,5 +141,43 @@ pub async fn add(
         }
       }
     }
+  }
+}
+
+pub async fn get_active(
+  request: HttpRequest,
+  app_data: web::Data<crate::AppState>,
+) -> impl Responder {
+  match request.headers().get("user_id") {
+    Some(user_id_header) => match user_id_header.to_str() {
+      Ok(user_id_str) => {
+        let user_id = String::from(user_id_str);
+        web::block(move || {
+          crate::service::basket::get_active(
+            app_data.basket_collection.clone(),
+            String::from(user_id),
+          )
+        })
+        .await
+        .map(|(option, _collection, _user_id)| match option {
+          Some(document) => HttpResponse::Ok().json(document),
+          None => HttpResponse::NotFound().body("active basket not exists"),
+        })
+        .map_err(|err| match err {
+          error::BlockingError::Error(error) => {
+            println!("error, {:?}", error);
+            HttpResponse::BadRequest().body("Error while getting active basket")
+          }
+          error::BlockingError::Canceled => {
+            HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+          }
+        })
+      }
+      Err(e) => {
+        println!("Error while stringifying user_id header, {:?}", e);
+        Ok(HttpResponse::NotFound().body("user is not type of string"))
+      }
+    },
+    None => Ok(HttpResponse::NotFound().body("user does not exist")),
   }
 }
