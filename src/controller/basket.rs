@@ -34,16 +34,28 @@ pub async fn add(
                 // user has active basket
 
                 // check whether product is already in active basket
-                println!("active_basket: {:?}", active_basket);
                 match crate::service::basket::increment_product_count(
                   collection,
-                  &product_id,
-                  &user_id,
+                  product_id,
+                  user_id,
                 ) {
-                  Ok(update) => {
-                    println!("update: {:?}", update);
-                    HttpResponse::Ok().json(active_basket)
-                  }
+                  Ok((update, collection, product_id, user_id)) => match update {
+                    Some(doc) => {
+                      HttpResponse::Ok().json(doc)
+                    },
+                    None => {
+                      // product is not present in basket
+                      match crate::service::basket::add_item(collection, &product_id, &user_id) {
+                        Ok(_update) => {
+                          HttpResponse::Ok().json(active_basket)
+                        },
+                        Err(e) => {
+                          println!("Error while adding item to basket, {:?}", e);
+                          HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+                        }
+                      }
+                    }
+                  },
                   Err(e) => {
                     println!("Error while incrementing product count,  {:?}", e);
                     HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
@@ -59,7 +71,7 @@ pub async fn add(
                   Ok(basket) => {
                     let response = Response {
                       id: basket.inserted_id,
-                      message: String::from("created active basket fro user"),
+                      message: String::from("created active basket for user"),
                     };
                     HttpResponse::Ok().json(response)
                   }
