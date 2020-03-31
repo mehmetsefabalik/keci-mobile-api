@@ -33,6 +33,7 @@ async fn main() -> std::io::Result<()> {
         user_collection: user_collection.clone(),
         basket_collection: basket_collection.clone(),
       })
+      .wrap(actix_cors::Cors::new().allowed_origin(dotenv!("ALLOWED_ORIGIN")).finish())
       .service(
         web::scope("/listings")
           .route("", web::get().to(controller::listing::get)),
