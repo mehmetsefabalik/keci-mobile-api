@@ -46,7 +46,8 @@ async fn main() -> std::io::Result<()> {
         web::scope("/basket")
           .wrap(middleware::user::Resolve)
           .route("", web::post().to(controller::basket::add))
-          .route("", web::get().to(controller::basket::get_active)),
+          .route("", web::get().to(controller::basket::get_active))
+          .route("", web::patch().to(controller::basket::update)),
       )
       .service(web::scope("/users").route("", web::post().to(controller::user::create)))
   })
