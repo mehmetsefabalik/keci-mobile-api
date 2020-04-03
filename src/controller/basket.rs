@@ -36,10 +36,13 @@ pub async fn add(
 
                 // check whether product is already in active basket
                 // TODO: wrap with web block
-                match crate::service::basket::increment_product_count(
-                  collection, product_id, user_id,
+                match crate::service::basket::update_product_count(
+                  &collection,
+                  &product_id,
+                  &user_id,
+                  1,
                 ) {
-                  Ok((update, collection, product_id, user_id)) => match update {
+                  Ok(update) => match update {
                     Some(doc) => HttpResponse::Ok().json(doc),
                     None => {
                       // product is not present in basket
@@ -175,7 +178,97 @@ pub async fn get_active(
       }
       Err(e) => {
         println!("Error while stringifying user_id header, {:?}", e);
-        Ok(HttpResponse::NotFound().body("user is not type of string"))
+        Ok(HttpResponse::NotFound().body("user id is not type of string"))
+      }
+    },
+    None => Ok(HttpResponse::NotFound().body("user does not exist")),
+  }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct UpdateBody {
+  pub product_id: String,
+  pub count: i32,
+}
+
+pub async fn update(
+  request: HttpRequest,
+  body: web::Json<UpdateBody>,
+  app_data: web::Data<crate::AppState>,
+) -> impl Responder {
+  match request.headers().get("user_id") {
+    Some(user_id_header) => match user_id_header.to_str() {
+      Ok(user_id_str) => {
+        let user_id = String::from(user_id_str);
+        if body.count > 0 {
+          web::block(move || {
+            crate::service::basket::update_product_count(
+              &app_data.basket_collection,
+              &body.product_id,
+              &user_id,
+              1,
+            )
+          })
+          .await
+          .map(|option| match option {
+            Some(document) => HttpResponse::Ok().json(document),
+            None => HttpResponse::NotFound().body("active basket not exists"),
+          })
+          .map_err(|err| match err {
+            error::BlockingError::Error(error) => {
+              println!("error, {:?}", error);
+              HttpResponse::BadRequest().body("Error while getting active basket")
+            }
+            error::BlockingError::Canceled => {
+              HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+            }
+          })
+        } else {
+          web::block(move || {
+            crate::service::basket::get_product_with_count_one(
+              app_data.basket_collection.clone(),
+              body.product_id.clone(),
+              user_id,
+            )
+          })
+          .await
+          .map(|(option, collection, product_id, user_id)| match option {
+            Some(_document) => {
+              match crate::service::basket::remove_product(&collection, &product_id, &user_id) {
+                Ok(_update) => HttpResponse::Ok().body("Success"),
+                Err(e) => {
+                  println!("product can not be removed: {}", e);
+                  HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+                }
+              }
+            }
+            None => match crate::service::basket::update_product_count(
+              &collection,
+              &product_id,
+              &user_id,
+              -1,
+            ) {
+              Ok(_document) => HttpResponse::Ok().body("Success"),
+              Err(e) => {
+                println!("product can not be decremented: {}", e);
+                HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+              }
+            },
+          })
+          .map_err(|err| match err {
+            error::BlockingError::Error(error) => {
+              println!("error, {:?}", error);
+              HttpResponse::BadRequest().body("Error while getting active basket")
+            }
+            error::BlockingError::Canceled => {
+              HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+            }
+          })
+        }
+      }
+      Err(e) => {
+        println!("Error while stringifying user_id header, {:?}", e);
+        Ok(HttpResponse::NotFound().body("user id is not type of string"))
       }
     },
     None => Ok(HttpResponse::NotFound().body("user does not exist")),

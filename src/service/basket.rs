@@ -59,17 +59,13 @@ pub fn create(
   }
 }
 
-pub fn increment_product_count(
-  collection: Collection,
-  product_id: String,
-  user_id: String,
-) -> Result<(Option<OrderedDocument>, Collection, String, String), Error> {
-  match collection.find_one_and_update(doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"), "content.product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "active": true}, doc!{"$inc": {"content.$.count": 1}}, None) {
-     Ok(option) => {
-       Ok((option, collection, product_id, user_id))
-     },
-     Err(e) => Err(e)
-  }
+pub fn update_product_count(
+  collection: &Collection,
+  product_id: &String,
+  user_id: &String,
+  count: i32,
+) -> Result<Option<OrderedDocument>, Error> {
+  collection.find_one_and_update(doc! {"user_id": ObjectId::with_string(user_id).expect("Id not valid"), "content.product_id": ObjectId::with_string(product_id).expect("Id not valid"), "active": true}, doc!{"$inc": {"content.$.count": count}}, None)
 }
 
 pub fn add_item(
@@ -91,4 +87,30 @@ pub fn add_item(
       message: String::from("Can not create basket"),
     })),
   }
+}
+
+pub fn get_product_with_count_one(
+  collection: Collection,
+  product_id: String,
+  user_id: String,
+) -> Result<(Option<OrderedDocument>, Collection, String, String), Error> {
+  match collection.find_one(
+    doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"), "content.product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "content.count": 1 ,"active": true},
+    None
+  ) {
+    Ok(doc) => Ok((doc, collection, product_id, user_id)),
+    Err(e) => Err(e)
+  }
+}
+
+pub fn remove_product(
+  collection: &Collection,
+  product_id: &String,
+  user_id: &String,
+) -> Result<UpdateResult, Error> {
+  collection.update_one(
+      doc! {"active": true, "user_id": ObjectId::with_string(&user_id).expect("Id not valid")},
+      doc! {"$pull": {"content.product_id": ObjectId::with_string(&product_id).expect("Id not valid")}},
+      None,
+    )
 }
