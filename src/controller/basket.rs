@@ -212,7 +212,7 @@ pub async fn update(
           .await
           .map(|option| match option {
             Some(document) => HttpResponse::Ok().json(document),
-            None => HttpResponse::NotFound().body("active basket not exists"),
+            None => HttpResponse::NotFound().body("product does not exist in basket"),
           })
           .map_err(|err| match err {
             error::BlockingError::Error(error) => {

@@ -110,7 +110,7 @@ pub fn remove_product(
 ) -> Result<UpdateResult, Error> {
   collection.update_one(
       doc! {"active": true, "user_id": ObjectId::with_string(&user_id).expect("Id not valid")},
-      doc! {"$pull": {"content.product_id": ObjectId::with_string(&product_id).expect("Id not valid")}},
+      doc! {"$pull": {"content": {"product_id": ObjectId::with_string(&product_id).expect("Id not valid")}}},
       None,
     )
 }
