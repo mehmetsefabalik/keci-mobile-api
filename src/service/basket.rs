@@ -1,4 +1,4 @@
-use bson::{doc, oid::ObjectId, ordered::OrderedDocument, to_bson, Bson};
+use bson::{doc, oid::ObjectId, ordered::OrderedDocument, to_bson, Bson, ordered};
 use mongodb::{
   error::{Error, ErrorKind},
   results::{InsertOneResult, UpdateResult},
@@ -9,13 +9,36 @@ use serde::{Deserialize, Serialize};
 pub fn get_active(
   collection: Collection,
   user_id: String,
-) -> Result<(Option<OrderedDocument>, Collection, String), Error> {
-  match collection.find_one(
-    doc! {"active": true, "user_id": ObjectId::with_string(&user_id).expect("Id not valid")},
-    None,
-  ) {
-    Ok(result) => Ok((result, collection, user_id)),
-    Err(e) => Err(e),
+) -> Result<(Option<OrderedDocument>, Collection, String), String> {
+  let pipeline = vec![
+    doc! {
+      "$match": doc! {"active": true, "user_id": ObjectId::with_string(&user_id).expect("Id not valid")}
+    },
+    doc! {
+      "$lookup": doc! {"from": "product", "localField": "content.product_id", "foreignField": "_id", "as": "product_info"}
+    },
+    doc! {
+      "$unwind": doc! {"path": "$content.product", "preserveNullAndEmptyArrays": true}
+    }
+  ];
+  match collection.aggregate(pipeline.into_iter(), None) {
+    Ok(cursor) => {
+      let mut baskets: Vec<ordered::OrderedDocument> = vec![];
+      for result in cursor {
+        if let Ok(document) = result {
+          baskets.push(document);
+        } else {
+          return Err(String::from("Can't find active basket"));
+        }
+      }
+      if baskets.len() > 0 {
+        let basket = baskets[0].clone();
+        Ok((Some(basket), collection, user_id))
+      } else {
+        Ok((None, collection, user_id))
+      }
+    }
+    Err(_e) => Err(String::from("Error while getting active basket")),
   }
 }
 
