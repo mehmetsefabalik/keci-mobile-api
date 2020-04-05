@@ -1,4 +1,4 @@
-use bson::{doc, oid::ObjectId, ordered::OrderedDocument, to_bson, Bson, ordered};
+use bson::{doc, oid::ObjectId, ordered::OrderedDocument, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
   results::{InsertOneResult, UpdateResult},
@@ -19,11 +19,11 @@ pub fn get_active(
     },
     doc! {
       "$unwind": doc! {"path": "$content.product", "preserveNullAndEmptyArrays": true}
-    }
+    },
   ];
   match collection.aggregate(pipeline.into_iter(), None) {
     Ok(cursor) => {
-      let mut baskets: Vec<ordered::OrderedDocument> = vec![];
+      let mut baskets: Vec<OrderedDocument> = vec![];
       for result in cursor {
         if let Ok(document) = result {
           baskets.push(document);
@@ -118,7 +118,7 @@ pub fn get_product_with_count_one(
   user_id: String,
 ) -> Result<(Option<OrderedDocument>, Collection, String, String), Error> {
   match collection.find_one(
-    doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"), "content.product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "content.count": 1 ,"active": true},
+    doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"),"content": {"product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "count": 1}, "active": true},
     None
   ) {
     Ok(doc) => Ok((doc, collection, product_id, user_id)),
