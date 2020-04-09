@@ -16,7 +16,7 @@ pub fn get(
       "$unwind": doc! {"path": "$product", "preserveNullAndEmptyArrays": true}
     },
     doc! {
-      "$project": doc! {"product.name": 1, "product.size": 1, "product.price": 1, "product.old_price": 1, "product._id": 1}
+      "$project": doc! {"product.name": 1, "product.size": 1, "product.price": 1, "product.old_price": 1, "product._id": 1, "header": 1, "text": 1, "type": 1}
     },
     doc! {
       "$sort": doc! {"priority": -1}
