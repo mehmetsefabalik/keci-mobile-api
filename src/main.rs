@@ -50,7 +50,8 @@ async fn main() -> std::io::Result<()> {
       .service(
         web::scope("/users")
           .wrap(middleware::user::Resolve)
-          .route("", web::post().to(controller::user::create)),
+          .route("", web::post().to(controller::user::create))
+          .route("/validate", web::post().to(controller::user::login)),
       )
   })
   .bind("0.0.0.0:3003")?

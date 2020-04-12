@@ -1,5 +1,3 @@
-use crate::controller::user::CreateUser;
-use actix_web::web::Json;
 use bson::{doc, oid::ObjectId, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
@@ -10,17 +8,16 @@ use serde::{Deserialize, Serialize};
 
 pub fn get(
   collection: Collection,
-  user: Json<CreateUser>,
+  phone: &String,
 ) -> Result<
   (
     Option<bson::ordered::OrderedDocument>,
-    Collection,
-    Json<CreateUser>,
+    Collection
   ),
   Error,
 > {
-  match collection.find_one(doc! {"phone": String::from(&user.phone)}, None) {
-    Ok(result) => Ok((result, collection, user)),
+  match collection.find_one(doc! {"phone": phone}, None) {
+    Ok(result) => Ok((result, collection)),
     Err(e) => Err(e),
   }
 }
