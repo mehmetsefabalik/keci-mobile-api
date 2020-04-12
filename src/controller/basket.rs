@@ -107,7 +107,7 @@ pub async fn add(
           bson::Bson::ObjectId(id) => {
             let claims = crate::controller::user::Claims {
               sub: id.to_string(),
-              user_type: String::from("registered"),
+              user_type: String::from("guest"),
             };
             let token = encode(
               &Header::default(),

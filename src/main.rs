@@ -33,15 +33,13 @@ async fn main() -> std::io::Result<()> {
         user_collection: user_collection.clone(),
         basket_collection: basket_collection.clone(),
       })
-      .wrap(actix_cors::Cors::new().allowed_origin(dotenv!("ALLOWED_ORIGIN")).finish())
-      .service(
-        web::scope("/listings")
-          .route("", web::get().to(controller::listing::get)),
+      .wrap(
+        actix_cors::Cors::new()
+          .allowed_origin(dotenv!("ALLOWED_ORIGIN"))
+          .finish(),
       )
-      .service(
-        web::scope("/contents")
-          .route("", web::get().to(controller::content::get)),
-      )
+      .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
+      .service(web::scope("/contents").route("", web::get().to(controller::content::get)))
       .service(
         web::scope("/basket")
           .wrap(middleware::user::Resolve)
@@ -49,7 +47,11 @@ async fn main() -> std::io::Result<()> {
           .route("", web::get().to(controller::basket::get_active))
           .route("", web::patch().to(controller::basket::update)),
       )
-      .service(web::scope("/users").route("", web::post().to(controller::user::create)))
+      .service(
+        web::scope("/users")
+          .wrap(middleware::user::Resolve)
+          .route("", web::post().to(controller::user::create)),
+      )
   })
   .bind("0.0.0.0:3003")?
   .run()

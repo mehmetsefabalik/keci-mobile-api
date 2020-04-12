@@ -1,9 +1,9 @@
 use crate::controller::user::CreateUser;
 use actix_web::web::Json;
-use bson::{doc, to_bson, Bson};
+use bson::{doc, oid::ObjectId, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
-  results::InsertOneResult,
+  results::{InsertOneResult, UpdateResult},
   Collection,
 };
 use serde::{Deserialize, Serialize};
@@ -55,4 +55,17 @@ pub fn create(
 
 pub fn create_anon(collection: Collection) -> Result<InsertOneResult, Error> {
   collection.insert_one(doc! {}, None)
+}
+
+pub fn register(
+  collection: Collection,
+  user_id: &str,
+  phone: &str,
+  password: &str,
+) -> Result<UpdateResult, Error> {
+  collection.update_one(
+    doc! {"_id": ObjectId::with_string(&user_id).expect("Id not valid")},
+    doc! {"$set": {"phone": String::from(phone), "password": String::from(password)}},
+    None,
+  )
 }
