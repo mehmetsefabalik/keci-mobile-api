@@ -10,6 +10,7 @@ pub struct AppState {
   content_collection: Collection,
   user_collection: Collection,
   basket_collection: Collection,
+  address_collection: Collection,
 }
 
 #[macro_use]
@@ -24,6 +25,7 @@ async fn main() -> std::io::Result<()> {
   let content_collection = db.collection(dotenv!("DB_CONTENT_COLLECTION"));
   let user_collection = db.collection(dotenv!("DB_USER_COLLECTION"));
   let basket_collection = db.collection(dotenv!("DB_BASKET_COLLECTION"));
+  let address_collection = db.collection(dotenv!("DB_ADDRESS_COLLECTION"));
 
   HttpServer::new(move || {
     App::new()
@@ -32,6 +34,7 @@ async fn main() -> std::io::Result<()> {
         content_collection: content_collection.clone(),
         user_collection: user_collection.clone(),
         basket_collection: basket_collection.clone(),
+        address_collection: address_collection.clone(),
       })
       .wrap(
         actix_cors::Cors::new()
@@ -52,6 +55,11 @@ async fn main() -> std::io::Result<()> {
           .wrap(middleware::user::Resolve)
           .route("", web::post().to(controller::user::create))
           .route("/validate", web::post().to(controller::user::login)),
+      )
+      .service(
+        web::scope("/addresses")
+          .wrap(middleware::user::Resolve)
+          .route("", web::post().to(controller::address::create)),
       )
   })
   .bind("0.0.0.0:3003")?
