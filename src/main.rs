@@ -59,7 +59,8 @@ async fn main() -> std::io::Result<()> {
       .service(
         web::scope("/addresses")
           .wrap(middleware::user::Resolve)
-          .route("", web::post().to(controller::address::create)),
+          .route("", web::post().to(controller::address::create))
+          .route("", web::get().to(controller::address::get_all)),
       )
   })
   .bind("0.0.0.0:3003")?

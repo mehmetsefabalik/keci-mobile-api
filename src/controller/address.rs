@@ -64,3 +64,32 @@ pub async fn create(
     None => HttpResponse::Unauthorized().finish(),
   }
 }
+
+pub async fn get_all(request: HttpRequest, app_data: web::Data<crate::AppState>) -> impl Responder {
+  match request.headers().get("user_id") {
+    Some(user_id_header) => match user_id_header.to_str() {
+      Ok(user_id_str) => {
+        let user_id = String::from(user_id_str);
+        let create_address_result = web::block(move || {
+          crate::service::address::get_all(&app_data.address_collection, &user_id)
+        })
+        .await;
+        match create_address_result {
+          Ok(response) => HttpResponse::Ok().json(response),
+          Err(e) => {
+            println!("Error while creating address, {:?}", e);
+            HttpResponse::InternalServerError().finish()
+          }
+        }
+      }
+      Err(_e) => {
+        println!(
+          "Error while stringifying user_id header, {:?}",
+          user_id_header
+        );
+        HttpResponse::BadRequest().finish()
+      }
+    },
+    None => HttpResponse::Unauthorized().finish(),
+  }
+}

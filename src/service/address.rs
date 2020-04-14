@@ -1,3 +1,4 @@
+use bson::{doc, ordered};
 use bson::{oid::ObjectId, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
@@ -5,6 +6,7 @@ use mongodb::{
   Collection,
 };
 use serde::{Deserialize, Serialize};
+use std::vec;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Address {
@@ -50,5 +52,28 @@ pub fn create(
     Err(Error::from(ErrorKind::OperationError {
       message: String::from("Can not create address"),
     }))
+  }
+}
+
+pub fn get_all(
+  collection: &Collection,
+  user_id: &str,
+) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
+  match collection.find(
+    doc! {"user_id": ObjectId::with_string(user_id).expect("user_id is not valid")},
+    None,
+  ) {
+    Ok(cursor) => {
+      let mut addresses: Vec<ordered::OrderedDocument> = vec![];
+      for result in cursor {
+        if let Ok(document) = result {
+          addresses.push(document);
+        } else {
+          return Err(String::from("Can't find addresses"));
+        }
+      }
+      Ok(addresses)
+    }
+    Err(_e) => Err(String::from("Error while getting addresses")),
   }
 }
