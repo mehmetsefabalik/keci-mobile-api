@@ -93,3 +93,52 @@ pub async fn get_all(request: HttpRequest, app_data: web::Data<crate::AppState>)
     None => HttpResponse::Unauthorized().finish(),
   }
 }
+
+#[derive(Deserialize)]
+pub struct UpdatePath {
+  address_id: String,
+}
+
+pub async fn update(
+  request: HttpRequest,
+  app_data: web::Data<crate::AppState>,
+  body: web::Json<CreateAddressBody>,
+  path: web::Path<UpdatePath>,
+) -> impl Responder {
+  match request.headers().get("user_id") {
+    Some(user_id_header) => match user_id_header.to_str() {
+      Ok(user_id_str) => {
+        let user_id = String::from(user_id_str);
+        let create_address_result = web::block(move || {
+          crate::service::address::update(
+            &app_data.address_collection,
+            &path.address_id,
+            &user_id,
+            &body.name,
+            &body.surname,
+            &body.title,
+            &body.text,
+            body.district_id,
+            body.neighborhood_id,
+          )
+        })
+        .await;
+        match create_address_result {
+          Ok(_response) => HttpResponse::Ok().finish(),
+          Err(e) => {
+            println!("Error while creating address, {:?}", e);
+            HttpResponse::InternalServerError().finish()
+          }
+        }
+      }
+      Err(_e) => {
+        println!(
+          "Error while stringifying user_id header, {:?}",
+          user_id_header
+        );
+        HttpResponse::BadRequest().finish()
+      }
+    },
+    None => HttpResponse::Unauthorized().finish(),
+  }
+}

@@ -3,6 +3,7 @@ use bson::{oid::ObjectId, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
   results::InsertOneResult,
+  results::UpdateResult,
   Collection,
 };
 use serde::{Deserialize, Serialize};
@@ -75,5 +76,46 @@ pub fn get_all(
       Ok(addresses)
     }
     Err(_e) => Err(String::from("Error while getting addresses")),
+  }
+}
+
+pub fn update(
+  collection: &Collection,
+  _id: &str,
+  user_id: &str,
+  name: &String,
+  surname: &String,
+  title: &String,
+  text: &String,
+  district_id: i32,
+  neighborhood_id: i32,
+) -> Result<UpdateResult, Error> {
+  let name = name.clone();
+  let surname = surname.clone();
+  let title = title.clone();
+  let text = text.clone();
+  let address = Address {
+    user_id: ObjectId::with_string(user_id).expect("Invalid ObjectId string"),
+    name: name,
+    surname: surname,
+    title: title,
+    text: text,
+    district_id: district_id,
+    neighborhood_id: neighborhood_id,
+  };
+  let serialized_address = to_bson(&address).unwrap();
+  if let Bson::Document(document) = serialized_address {
+    match collection.replace_one(
+      doc! {"_id": ObjectId::with_string(_id).expect("address id not valid")},
+      document,
+      None,
+    ) {
+      Ok(insert_result) => Ok(insert_result),
+      Err(e) => Err(e),
+    }
+  } else {
+    Err(Error::from(ErrorKind::OperationError {
+      message: String::from("Can not create address"),
+    }))
   }
 }

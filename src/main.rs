@@ -60,6 +60,7 @@ async fn main() -> std::io::Result<()> {
         web::scope("/addresses")
           .wrap(middleware::user::Resolve)
           .route("", web::post().to(controller::address::create))
+          .route("/{address_id}", web::patch().to(controller::address::update))
           .route("", web::get().to(controller::address::get_all)),
       )
   })
