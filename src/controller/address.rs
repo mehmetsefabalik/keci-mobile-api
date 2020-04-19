@@ -109,7 +109,7 @@ pub async fn update(
     Some(user_id_header) => match user_id_header.to_str() {
       Ok(user_id_str) => {
         let user_id = String::from(user_id_str);
-        let create_address_result = web::block(move || {
+        let address_result = web::block(move || {
           crate::service::address::update(
             &app_data.address_collection,
             &path.address_id,
@@ -123,7 +123,7 @@ pub async fn update(
           )
         })
         .await;
-        match create_address_result {
+        match address_result {
           Ok(_response) => HttpResponse::Ok().finish(),
           Err(e) => {
             println!("Error while creating address, {:?}", e);

@@ -105,17 +105,14 @@ pub fn update(
   };
   let serialized_address = to_bson(&address).unwrap();
   if let Bson::Document(document) = serialized_address {
-    match collection.replace_one(
+    collection.replace_one(
       doc! {"_id": ObjectId::with_string(_id).expect("address id not valid")},
       document,
       None,
-    ) {
-      Ok(insert_result) => Ok(insert_result),
-      Err(e) => Err(e),
-    }
+    )
   } else {
     Err(Error::from(ErrorKind::OperationError {
-      message: String::from("Can not create address"),
+      message: String::from("Can not update address"),
     }))
   }
 }
