@@ -23,7 +23,6 @@ pub struct AppState {
   content_collection: Collection,
   user_collection: Collection,
   basket_collection: Collection,
-  address_collection: Collection,
   service_container: ServiceContainer,
 }
 
@@ -49,7 +48,6 @@ async fn main() -> std::io::Result<()> {
         content_collection: content_collection.clone(),
         user_collection: user_collection.clone(),
         basket_collection: basket_collection.clone(),
-        address_collection: address_collection.clone(),
         service_container,
       })
       .wrap(

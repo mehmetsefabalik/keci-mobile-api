@@ -1,5 +1,5 @@
 use crate::model::address::Address;
-use crate::traits::create::Creator;
+use crate::traits::service::{Creator, Getter, Updater};
 use bson::{doc, ordered};
 use bson::{oid::ObjectId, to_bson, Bson};
 use mongodb::{
@@ -36,44 +36,41 @@ impl Creator<Address> for AddressService {
   }
 }
 
-pub fn get_all(
-  collection: &Collection,
-  user_id: &str,
-) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
-  match collection.find(
-    doc! {"user_id": ObjectId::with_string(user_id).expect("user_id is not valid")},
-    None,
-  ) {
-    Ok(cursor) => {
-      let mut addresses: Vec<ordered::OrderedDocument> = vec![];
-      for result in cursor {
-        if let Ok(document) = result {
-          addresses.push(document);
-        } else {
-          return Err(String::from("Can't find addresses"));
+impl Getter for AddressService {
+  fn get_all(&self, id: &str) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
+    match self.collection.find(
+      doc! {"user_id": ObjectId::with_string(id).expect("user_id is not valid")},
+      None,
+    ) {
+      Ok(cursor) => {
+        let mut addresses: Vec<ordered::OrderedDocument> = vec![];
+        for result in cursor {
+          if let Ok(document) = result {
+            addresses.push(document);
+          } else {
+            return Err(String::from("Can't find addresses"));
+          }
         }
+        Ok(addresses)
       }
-      Ok(addresses)
+      Err(_e) => Err(String::from("Error while getting addresses")),
     }
-    Err(_e) => Err(String::from("Error while getting addresses")),
   }
 }
 
-pub fn update(
-  collection: &Collection,
-  _id: &str,
-  address: &Address,
-) -> Result<UpdateResult, Error> {
-  let serialized_address = to_bson(&address).unwrap();
-  if let Bson::Document(document) = serialized_address {
-    collection.replace_one(
-      doc! {"_id": ObjectId::with_string(_id).expect("address id not valid")},
-      document,
-      None,
-    )
-  } else {
-    Err(Error::from(ErrorKind::OperationError {
-      message: String::from("Can not update address"),
-    }))
+impl Updater<Address> for AddressService {
+  fn update(&self, address: &Address, id: &str) -> Result<UpdateResult, Error> {
+    let serialized_address = to_bson(&address).unwrap();
+    if let Bson::Document(document) = serialized_address {
+      self.collection.replace_one(
+        doc! {"_id": ObjectId::with_string(id).expect("address id not valid")},
+        document,
+        None,
+      )
+    } else {
+      Err(Error::from(ErrorKind::OperationError {
+        message: String::from("Can not update address"),
+      }))
+    }
   }
 }

@@ -1,6 +1,5 @@
 use crate::model::address::Address;
-use crate::service::address;
-use crate::traits::create::Creator;
+use crate::traits::service::{Creator, Getter, Updater};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
@@ -72,7 +71,7 @@ pub async fn get_all(request: HttpRequest, app_data: web::Data<crate::AppState>)
       Ok(user_id_str) => {
         let user_id = String::from(user_id_str);
         let create_address_result =
-          web::block(move || address::get_all(&app_data.address_collection, &user_id)).await;
+          web::block(move || app_data.service_container.address.get_all(&user_id)).await;
         match create_address_result {
           Ok(response) => HttpResponse::Ok().json(response),
           Err(e) => {
@@ -117,7 +116,10 @@ pub async fn update(
           body.neighborhood_id,
         );
         let address_result = web::block(move || {
-          address::update(&app_data.address_collection, &path.address_id, &address)
+          app_data
+            .service_container
+            .address
+            .update(&address, &path.address_id)
         })
         .await;
         match address_result {
