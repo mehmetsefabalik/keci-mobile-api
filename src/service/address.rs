@@ -1,4 +1,5 @@
 use crate::model::address::Address;
+use crate::traits::create::Creator;
 use bson::{doc, ordered};
 use bson::{oid::ObjectId, to_bson, Bson};
 use mongodb::{
@@ -9,17 +10,29 @@ use mongodb::{
 };
 use std::vec;
 
-pub fn create(collection: &Collection, address: &Address) -> Result<InsertOneResult, Error> {
-  let serialized_address = to_bson(&address).unwrap();
-  if let Bson::Document(document) = serialized_address {
-    match collection.insert_one(document, None) {
-      Ok(insert_result) => Ok(insert_result),
-      Err(e) => Err(e),
+pub struct AddressService {
+  collection: Collection,
+}
+
+impl AddressService {
+  pub fn new(collection: Collection) -> AddressService {
+    AddressService { collection }
+  }
+}
+
+impl Creator<Address> for AddressService {
+  fn create(&self, address: &Address) -> Result<InsertOneResult, Error> {
+    let serialized_address = to_bson(&address).unwrap();
+    if let Bson::Document(document) = serialized_address {
+      match self.collection.insert_one(document, None) {
+        Ok(insert_result) => Ok(insert_result),
+        Err(e) => Err(e),
+      }
+    } else {
+      Err(Error::from(ErrorKind::OperationError {
+        message: String::from("Can not create address"),
+      }))
     }
-  } else {
-    Err(Error::from(ErrorKind::OperationError {
-      message: String::from("Can not create address"),
-    }))
   }
 }
 

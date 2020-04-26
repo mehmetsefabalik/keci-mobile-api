@@ -1,10 +1,22 @@
 use actix_web::{web, App, HttpServer};
 use mongodb::{options::ClientOptions, Client, Collection};
+use service::address::AddressService;
 
 mod controller;
 mod middleware;
 mod model;
 mod service;
+mod traits;
+
+pub struct ServiceContainer {
+  address: AddressService,
+}
+
+impl ServiceContainer {
+  pub fn new(address: AddressService) -> Self {
+    ServiceContainer { address }
+  }
+}
 
 pub struct AppState {
   listing_collection: Collection,
@@ -12,6 +24,7 @@ pub struct AppState {
   user_collection: Collection,
   basket_collection: Collection,
   address_collection: Collection,
+  service_container: ServiceContainer,
 }
 
 #[macro_use]
@@ -29,6 +42,7 @@ async fn main() -> std::io::Result<()> {
   let address_collection = db.collection(dotenv!("DB_ADDRESS_COLLECTION"));
 
   HttpServer::new(move || {
+    let service_container = ServiceContainer::new(AddressService::new(address_collection.clone()));
     App::new()
       .data(AppState {
         listing_collection: listing_collection.clone(),
@@ -36,6 +50,7 @@ async fn main() -> std::io::Result<()> {
         user_collection: user_collection.clone(),
         basket_collection: basket_collection.clone(),
         address_collection: address_collection.clone(),
+        service_container,
       })
       .wrap(
         actix_cors::Cors::new()
