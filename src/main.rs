@@ -3,6 +3,7 @@ use mongodb::{options::ClientOptions, Client, Collection};
 
 mod controller;
 mod middleware;
+mod model;
 mod service;
 
 pub struct AppState {
@@ -60,8 +61,16 @@ async fn main() -> std::io::Result<()> {
         web::scope("/addresses")
           .wrap(middleware::user::Resolve)
           .route("", web::post().to(controller::address::create))
-          .route("/{address_id}", web::patch().to(controller::address::update))
+          .route(
+            "/{address_id}",
+            web::patch().to(controller::address::update),
+          )
           .route("", web::get().to(controller::address::get_all)),
+      )
+      .service(
+        web::scope("/orders")
+          .wrap(middleware::user::Resolve)
+          .route("", web::post().to(controller::address::create)),
       )
   })
   .bind("0.0.0.0:3003")?

@@ -1,4 +1,8 @@
+use crate::model::basket::{Basket, BasketItem};
+use crate::service::basket;
+use crate::service::user;
 use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder};
+use bson::oid::ObjectId;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 
@@ -25,70 +29,73 @@ pub async fn add(
       match user_id_header.to_str() {
         Ok(user_id_str) => {
           let user_id = String::from(user_id_str);
-          web::block(move || {
-            crate::service::basket::get_active(app_data.basket_collection.clone(), user_id)
-          })
-          .await
-          .map(|(active_basket_option, collection, user_id)| {
-            match active_basket_option {
-              Some(active_basket) => {
-                // user has active basket
+          web::block(move || basket::get_active(app_data.basket_collection.clone(), user_id))
+            .await
+            .map(|(active_basket_option, collection, user_id)| {
+              match active_basket_option {
+                Some(active_basket) => {
+                  // user has active basket
 
-                // check whether product is already in active basket
-                // TODO: wrap with web block
-                match crate::service::basket::update_product_count(
-                  &collection,
-                  &product_id,
-                  &user_id,
-                  1,
-                ) {
-                  Ok(update) => match update {
-                    Some(doc) => HttpResponse::Ok().json(doc),
-                    None => {
-                      // product is not present in basket
-                      // TODO: wrap with web::block
-                      match crate::service::basket::add_item(collection, &product_id, &user_id) {
-                        Ok(_update) => HttpResponse::Ok().json(active_basket),
-                        Err(e) => {
-                          println!("Error while adding item to basket, {:?}", e);
-                          HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+                  // check whether product is already in active basket
+                  // TODO: wrap with web block
+                  match basket::update_product_count(&collection, &product_id, &user_id, 1) {
+                    Ok(update) => match update {
+                      Some(doc) => HttpResponse::Ok().json(doc),
+                      None => {
+                        // product is not present in basket
+                        // TODO: wrap with web::block
+                        match basket::add_item(collection, &product_id, &user_id) {
+                          Ok(_update) => HttpResponse::Ok().json(active_basket),
+                          Err(e) => {
+                            println!("Error while adding item to basket, {:?}", e);
+                            HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+                          }
                         }
                       }
+                    },
+                    Err(e) => {
+                      println!("Error while incrementing product count,  {:?}", e);
+                      HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
                     }
-                  },
-                  Err(e) => {
-                    println!("Error while incrementing product count,  {:?}", e);
-                    HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+                  }
+                }
+                None => {
+                  // user does not have active basket
+                  // TODO: wrap with web::block
+                  let basket_item = BasketItem::new(
+                    ObjectId::with_string(&product_id).expect("Invalid ObjectId string"),
+                    1,
+                  );
+                  let basket = Basket::new(
+                    ObjectId::with_string(&user_id).expect("Invalid ObjectId string"),
+                    vec![basket_item],
+                    true,
+                  );
+
+                  let basket_result = basket::create(collection, &basket);
+
+                  match basket_result {
+                    Ok(basket) => {
+                      let response = Response {
+                        id: basket.inserted_id,
+                        message: String::from("created active basket for user"),
+                      };
+                      HttpResponse::Ok().json(response)
+                    }
+                    Err(_e) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
                   }
                 }
               }
-              None => {
-                // user does not have active basket
-                // TODO: wrap with web::block
-                let basket_result =
-                  crate::service::basket::create(collection, &product_id, &user_id);
-                match basket_result {
-                  Ok(basket) => {
-                    let response = Response {
-                      id: basket.inserted_id,
-                      message: String::from("created active basket for user"),
-                    };
-                    HttpResponse::Ok().json(response)
-                  }
-                  Err(_e) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-                }
+            })
+            .map_err(|err| match err {
+              error::BlockingError::Error(error) => {
+                println!("error, {:?}", error);
+                HttpResponse::BadRequest().body("Error while getting active basket")
               }
-            }
-          })
-          .map_err(|err| match err {
-            error::BlockingError::Error(error) => {
-              println!("error, {:?}", error);
-              HttpResponse::BadRequest().body("Error while getting active basket")
-            }
-            error::BlockingError::Canceled => {
-              HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-            }
-          })
+              error::BlockingError::Canceled => {
+                HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
+              }
+            })
         }
         Err(e) => {
           println!(
@@ -102,7 +109,7 @@ pub async fn add(
     None => {
       // anon
       // TODO: wrap with web::block
-      match crate::service::user::create_anon(app_data.user_collection.clone()) {
+      match user::create_anon(app_data.user_collection.clone()) {
         Ok(user_result) => match user_result.inserted_id {
           bson::Bson::ObjectId(id) => {
             let claims = crate::controller::user::Claims {
@@ -116,11 +123,21 @@ pub async fn add(
             )
             .unwrap();
             let cookie = format!("access_token={}", token);
+
+            let basket_item = BasketItem::new(
+              ObjectId::with_string(&product_id).expect("Invalid ObjectId string"),
+              1,
+            );
+            let basket = Basket::new(
+              ObjectId::with_string(&id.to_string()).expect("Invalid ObjectId string"),
+              vec![basket_item],
+              true,
+            );
+
             // TODO: wrap with web::block
-            match crate::service::basket::create(
+            match basket::create(
               app_data.basket_collection.clone(),
-              &product_id,
-              &id.to_string(),
+              &basket
             ) {
               Ok(basket_result) => Ok(
                 HttpResponse::Ok()
@@ -156,10 +173,7 @@ pub async fn get_active(
       Ok(user_id_str) => {
         let user_id = String::from(user_id_str);
         web::block(move || {
-          crate::service::basket::get_active(
-            app_data.basket_collection.clone(),
-            String::from(user_id),
-          )
+          basket::get_active(app_data.basket_collection.clone(), String::from(user_id))
         })
         .await
         .map(|(option, _collection, _user_id)| match option {
@@ -202,12 +216,7 @@ pub async fn update(
         let user_id = String::from(user_id_str);
         if body.count > 0 {
           web::block(move || {
-            crate::service::basket::update_product_count(
-              &app_data.basket_collection,
-              &body.product_id,
-              &user_id,
-              1,
-            )
+            basket::update_product_count(&app_data.basket_collection, &body.product_id, &user_id, 1)
           })
           .await
           .map(|option| match option {
@@ -225,7 +234,7 @@ pub async fn update(
           })
         } else {
           web::block(move || {
-            crate::service::basket::get_product_with_count_one(
+            basket::get_product_with_count_one(
               app_data.basket_collection.clone(),
               body.product_id.clone(),
               user_id,
@@ -233,21 +242,14 @@ pub async fn update(
           })
           .await
           .map(|(option, collection, product_id, user_id)| match option {
-            Some(_document) => {
-              match crate::service::basket::remove_product(&collection, &product_id, &user_id) {
-                Ok(_update) => HttpResponse::Ok().body("Success"),
-                Err(e) => {
-                  println!("product can not be removed: {}", e);
-                  HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-                }
+            Some(_document) => match basket::remove_product(&collection, &product_id, &user_id) {
+              Ok(_update) => HttpResponse::Ok().body("Success"),
+              Err(e) => {
+                println!("product can not be removed: {}", e);
+                HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
               }
-            }
-            None => match crate::service::basket::update_product_count(
-              &collection,
-              &product_id,
-              &user_id,
-              -1,
-            ) {
+            },
+            None => match basket::update_product_count(&collection, &product_id, &user_id, -1) {
               Ok(_document) => HttpResponse::Ok().body("Success"),
               Err(e) => {
                 println!("product can not be decremented: {}", e);

@@ -1,10 +1,10 @@
+use crate::model::basket::{Basket, BasketItem};
 use bson::{doc, oid::ObjectId, ordered::OrderedDocument, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
   results::{InsertOneResult, UpdateResult},
   Collection,
 };
-use serde::{Deserialize, Serialize};
 
 pub fn get_active(
   collection: Collection,
@@ -42,33 +42,7 @@ pub fn get_active(
   }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct BasketItem {
-  product_id: ObjectId,
-  count: i16,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Basket {
-  user_id: ObjectId,
-  content: Vec<BasketItem>,
-  active: bool,
-}
-
-pub fn create(
-  collection: Collection,
-  product_id: &str,
-  user_id: &str,
-) -> Result<InsertOneResult, Error> {
-  let basket_item = BasketItem {
-    product_id: ObjectId::with_string(product_id).expect("Invalid ObjectId string"),
-    count: 1,
-  };
-  let basket = Basket {
-    user_id: ObjectId::with_string(user_id).expect("Invalid ObjectId string"),
-    content: vec![basket_item],
-    active: true,
-  };
+pub fn create(collection: Collection, basket: &Basket) -> Result<InsertOneResult, Error> {
   let serialized_basket = to_bson(&basket).unwrap();
   if let Bson::Document(document) = serialized_basket {
     match collection.insert_one(document, None) {
@@ -96,10 +70,10 @@ pub fn add_item(
   product_id: &str,
   user_id: &str,
 ) -> Result<UpdateResult, Error> {
-  let basket_item = BasketItem {
-    product_id: ObjectId::with_string(product_id).expect("Invalid ObjectId string"),
-    count: 1,
-  };
+  let basket_item = BasketItem::new(
+    ObjectId::with_string(product_id).expect("Invalid ObjectId string"),
+    1,
+  );
   match to_bson(&basket_item) {
     Ok(basket_item_doc) => collection.update_one(
       doc! {"active": true, "user_id": ObjectId::with_string(&user_id).expect("Id not valid")},

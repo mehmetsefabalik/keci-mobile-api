@@ -3,6 +3,8 @@ use bcrypt::{hash, verify};
 use bson::{from_bson, to_bson};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
+use crate::service::user;
+use crate::model::user::User;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct CreateUserBody {
@@ -27,7 +29,7 @@ pub async fn create(
   body: web::Json<CreateUserBody>,
 ) -> impl Responder {
   let phone = body.phone.clone();
-  web::block(move || crate::service::user::get(app_data.user_collection.clone(), &phone))
+  web::block(move || user::get(app_data.user_collection.clone(), &phone))
     .await
     .map(|(get_user_result, user_collection)| match get_user_result {
       Some(_) => HttpResponse::BadRequest().json(UserAlreadyRegisteredResponse {
@@ -44,7 +46,7 @@ pub async fn create(
               Ok(user_id_str) => {
                 let user_id = String::from(user_id_str);
                 // TODO: call with web::block
-                match crate::service::user::register(
+                match user::register(
                   user_collection,
                   &user_id,
                   &body.phone,
@@ -87,8 +89,9 @@ pub async fn create(
           }
           None => {
             // anon
+            let user = User::new(&body.phone, &hashed);
             // TODO: call with web::block
-            match crate::service::user::create(user_collection, &body.phone, &hashed) {
+            match user::create(user_collection, &user) {
               Ok(create_user_result) => match create_user_result.inserted_id {
                 bson::Bson::ObjectId(id) => {
                   let claims = Claims {
@@ -144,7 +147,7 @@ pub struct AlreadyGuestResponse {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct User {
+struct UserJson {
   _id: bson::oid::ObjectId,
   phone: String,
   password: String,
@@ -156,13 +159,13 @@ pub async fn login(
   body: web::Json<CreateUserBody>,
 ) -> impl Responder {
   let phone = body.phone.clone();
-  web::block(move || crate::service::user::get(app_data.user_collection.clone(), &phone))
+  web::block(move || user::get(app_data.user_collection.clone(), &phone))
     .await
     .map(
       |(get_user_result, _user_collection)| match get_user_result {
         Some(user_document) => {
           let user_bson = to_bson(&user_document).unwrap();
-          let user = from_bson::<User>(user_bson).unwrap();
+          let user = from_bson::<UserJson>(user_bson).unwrap();
           let verify_result = verify(&body.password, &user.password);
           match verify_result {
             Ok(verified) => {

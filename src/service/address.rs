@@ -1,3 +1,4 @@
+use crate::model::address::Address;
 use bson::{doc, ordered};
 use bson::{oid::ObjectId, to_bson, Bson};
 use mongodb::{
@@ -6,43 +7,9 @@ use mongodb::{
   results::UpdateResult,
   Collection,
 };
-use serde::{Deserialize, Serialize};
 use std::vec;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Address {
-  user_id: ObjectId,
-  name: String,
-  surname: String,
-  title: String,
-  text: String,
-  district_id: i32,
-  neighborhood_id: i32,
-}
-
-pub fn create(
-  collection: &Collection,
-  user_id: &str,
-  name: &String,
-  surname: &String,
-  title: &String,
-  text: &String,
-  district_id: i32,
-  neighborhood_id: i32,
-) -> Result<InsertOneResult, Error> {
-  let name = name.clone();
-  let surname = surname.clone();
-  let title = title.clone();
-  let text = text.clone();
-  let address = Address {
-    user_id: ObjectId::with_string(user_id).expect("Invalid ObjectId string"),
-    name: name,
-    surname: surname,
-    title: title,
-    text: text,
-    district_id: district_id,
-    neighborhood_id: neighborhood_id,
-  };
+pub fn create(collection: &Collection, address: &Address) -> Result<InsertOneResult, Error> {
   let serialized_address = to_bson(&address).unwrap();
   if let Bson::Document(document) = serialized_address {
     match collection.insert_one(document, None) {
@@ -82,27 +49,8 @@ pub fn get_all(
 pub fn update(
   collection: &Collection,
   _id: &str,
-  user_id: &str,
-  name: &String,
-  surname: &String,
-  title: &String,
-  text: &String,
-  district_id: i32,
-  neighborhood_id: i32,
+  address: &Address,
 ) -> Result<UpdateResult, Error> {
-  let name = name.clone();
-  let surname = surname.clone();
-  let title = title.clone();
-  let text = text.clone();
-  let address = Address {
-    user_id: ObjectId::with_string(user_id).expect("Invalid ObjectId string"),
-    name: name,
-    surname: surname,
-    title: title,
-    text: text,
-    district_id: district_id,
-    neighborhood_id: neighborhood_id,
-  };
   let serialized_address = to_bson(&address).unwrap();
   if let Bson::Document(document) = serialized_address {
     collection.replace_one(

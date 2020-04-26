@@ -4,7 +4,7 @@ use mongodb::{
   results::{InsertOneResult, UpdateResult},
   Collection,
 };
-use serde::{Deserialize, Serialize};
+use crate::model::user::User;
 
 pub fn get(
   collection: Collection,
@@ -22,21 +22,10 @@ pub fn get(
   }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct User {
-  phone: String,
-  password: String,
-}
-
 pub fn create(
   collection: Collection,
-  phone: &str,
-  password: &str,
+  user: &User,
 ) -> Result<InsertOneResult, Error> {
-  let user = User {
-    phone: String::from(phone),
-    password: String::from(password),
-  };
   let serialized_user = to_bson(&user).unwrap();
   if let Bson::Document(document) = serialized_user {
     match collection.insert_one(document, None) {
