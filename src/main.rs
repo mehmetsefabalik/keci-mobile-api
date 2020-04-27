@@ -2,27 +2,32 @@ use actix_web::{web, App, HttpServer};
 use mongodb::{options::ClientOptions, Client, Collection};
 use service::address::AddressService;
 use service::basket::BasketService;
+use service::listing::ListingService;
 
+mod action;
 mod controller;
 mod middleware;
 mod model;
 mod service;
 mod traits;
-mod action;
 
 pub struct ServiceContainer {
   address: AddressService,
   basket: BasketService,
+  listing: ListingService,
 }
 
 impl ServiceContainer {
-  pub fn new(address: AddressService, basket: BasketService) -> Self {
-    ServiceContainer { address, basket }
+  pub fn new(address: AddressService, basket: BasketService, listing: ListingService) -> Self {
+    ServiceContainer {
+      address,
+      basket,
+      listing,
+    }
   }
 }
 
 pub struct AppState {
-  listing_collection: Collection,
   user_collection: Collection,
   service_container: ServiceContainer,
 }
@@ -44,10 +49,10 @@ async fn main() -> std::io::Result<()> {
     let service_container = ServiceContainer::new(
       AddressService::new(address_collection.clone()),
       BasketService::new(basket_collection.clone()),
+      ListingService::new(listing_collection.clone()),
     );
     App::new()
       .data(AppState {
-        listing_collection: listing_collection.clone(),
         user_collection: user_collection.clone(),
         service_container,
       })
