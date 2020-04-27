@@ -1,7 +1,7 @@
+use crate::action::basket::{add_to_basket, decrement_product_count};
 use crate::model::basket::{Basket, BasketItem};
-use crate::service::basket;
 use crate::service::user;
-use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
 use bson::oid::ObjectId;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
@@ -29,80 +29,26 @@ pub async fn add(
       match user_id_header.to_str() {
         Ok(user_id_str) => {
           let user_id = String::from(user_id_str);
-          web::block(move || basket::get_active(app_data.basket_collection.clone(), user_id))
-            .await
-            .map(|(active_basket_option, collection, user_id)| {
-              match active_basket_option {
-                Some(active_basket) => {
-                  // user has active basket
+          let result = web::block(move || {
+            add_to_basket(
+              app_data.service_container.basket.clone(),
+              user_id.clone(),
+              body.product_id.clone(),
+            )
+          })
+          .await;
 
-                  // check whether product is already in active basket
-                  // TODO: wrap with web block
-                  match basket::update_product_count(&collection, &product_id, &user_id, 1) {
-                    Ok(update) => match update {
-                      Some(doc) => HttpResponse::Ok().json(doc),
-                      None => {
-                        // product is not present in basket
-                        // TODO: wrap with web::block
-                        match basket::add_item(collection, &product_id, &user_id) {
-                          Ok(_update) => HttpResponse::Ok().json(active_basket),
-                          Err(e) => {
-                            println!("Error while adding item to basket, {:?}", e);
-                            HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-                          }
-                        }
-                      }
-                    },
-                    Err(e) => {
-                      println!("Error while incrementing product count,  {:?}", e);
-                      HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-                    }
-                  }
-                }
-                None => {
-                  // user does not have active basket
-                  // TODO: wrap with web::block
-                  let basket_item = BasketItem::new(
-                    ObjectId::with_string(&product_id).expect("Invalid ObjectId string"),
-                    1,
-                  );
-                  let basket = Basket::new(
-                    ObjectId::with_string(&user_id).expect("Invalid ObjectId string"),
-                    vec![basket_item],
-                    true,
-                  );
-
-                  let basket_result = basket::create(collection, &basket);
-
-                  match basket_result {
-                    Ok(basket) => {
-                      let response = Response {
-                        id: basket.inserted_id,
-                        message: String::from("created active basket for user"),
-                      };
-                      HttpResponse::Ok().json(response)
-                    }
-                    Err(_e) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-                  }
-                }
-              }
-            })
-            .map_err(|err| match err {
-              error::BlockingError::Error(error) => {
-                println!("error, {:?}", error);
-                HttpResponse::BadRequest().body("Error while getting active basket")
-              }
-              error::BlockingError::Canceled => {
-                HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-              }
-            })
+          match result {
+            Ok(_response) => HttpResponse::Ok().finish(),
+            Err(_e) => HttpResponse::InternalServerError().finish(),
+          }
         }
         Err(e) => {
           println!(
             "Error while getting string of user_id header value, {:?}",
             e
           );
-          Ok(HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR))
+          HttpResponse::InternalServerError().finish()
         }
       }
     }
@@ -134,30 +80,30 @@ pub async fn add(
               true,
             );
 
-            // TODO: wrap with web::block
-            match basket::create(
-              app_data.basket_collection.clone(),
-              &basket
-            ) {
-              Ok(basket_result) => Ok(
-                HttpResponse::Ok()
-                  .header(
-                    "Set-Cookie",
-                    http::header::HeaderValue::from_str(&cookie).unwrap(),
-                  )
-                  .json(basket_result.inserted_id),
-              ),
+            let create_basket_result =
+              web::block(move || app_data.service_container.basket.create(&basket)).await;
+
+            match create_basket_result {
+              Ok(basket_result) => HttpResponse::Ok()
+                .header(
+                  "Set-Cookie",
+                  http::header::HeaderValue::from_str(&cookie).unwrap(),
+                )
+                .json(basket_result.inserted_id),
               Err(e) => {
                 println!("Error while creating basket for anon user, {:?}", e);
-                Ok(HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR))
+                HttpResponse::InternalServerError().finish()
               }
             }
           }
-          _ => Ok(HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)),
+          _ => {
+            println!("Error: inserted anon user id is not ObjectId");
+            HttpResponse::InternalServerError().finish()
+          }
         },
         Err(e) => {
           println!("Error while creating anon user: {:?}", e);
-          Ok(HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR))
+          HttpResponse::InternalServerError().finish()
         }
       }
     }
@@ -172,30 +118,25 @@ pub async fn get_active(
     Some(user_id_header) => match user_id_header.to_str() {
       Ok(user_id_str) => {
         let user_id = String::from(user_id_str);
-        web::block(move || {
-          basket::get_active(app_data.basket_collection.clone(), String::from(user_id))
-        })
-        .await
-        .map(|(option, _collection, _user_id)| match option {
-          Some(document) => HttpResponse::Ok().json(document),
-          None => HttpResponse::NotFound().body("active basket not exists"),
-        })
-        .map_err(|err| match err {
-          error::BlockingError::Error(error) => {
-            println!("error, {:?}", error);
-            HttpResponse::BadRequest().body("Error while getting active basket")
-          }
-          error::BlockingError::Canceled => {
+        let active_basket_result =
+          web::block(move || app_data.service_container.basket.get_active(&user_id)).await;
+        match active_basket_result {
+          Ok(active_basket_option) => match active_basket_option {
+            Some(document) => HttpResponse::Ok().json(document),
+            None => HttpResponse::NotFound().body("active basket not exists"),
+          },
+          Err(e) => {
+            println!("Error while creating anon user: {:?}", e);
             HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
           }
-        })
+        }
       }
       Err(e) => {
         println!("Error while stringifying user_id header, {:?}", e);
-        Ok(HttpResponse::NotFound().body("user id is not type of string"))
+        HttpResponse::Unauthorized().body("user id is not type of string")
       }
     },
-    None => Ok(HttpResponse::NotFound().body("user does not exist")),
+    None => HttpResponse::Unauthorized().finish(),
   }
 }
 
@@ -215,64 +156,45 @@ pub async fn update(
       Ok(user_id_str) => {
         let user_id = String::from(user_id_str);
         if body.count > 0 {
-          web::block(move || {
-            basket::update_product_count(&app_data.basket_collection, &body.product_id, &user_id, 1)
+          let update_product_count_response = web::block(move || {
+            app_data
+              .service_container
+              .basket
+              .update_product_count(&body.product_id, &user_id, 1)
           })
-          .await
-          .map(|option| match option {
-            Some(document) => HttpResponse::Ok().json(document),
-            None => HttpResponse::NotFound().body("product does not exist in basket"),
-          })
-          .map_err(|err| match err {
-            error::BlockingError::Error(error) => {
-              println!("error, {:?}", error);
-              HttpResponse::BadRequest().body("Error while getting active basket")
+          .await;
+
+          match update_product_count_response {
+            Ok(option) => match option {
+              Some(document) => HttpResponse::Ok().json(document),
+              None => HttpResponse::NotFound().body("product does not exist in basket"),
+            },
+            Err(e) => {
+              println!("Error while updating product count, {:?}", e);
+              HttpResponse::InternalServerError().finish()
             }
-            error::BlockingError::Canceled => {
-              HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-            }
-          })
+          }
         } else {
-          web::block(move || {
-            basket::get_product_with_count_one(
-              app_data.basket_collection.clone(),
-              body.product_id.clone(),
-              user_id,
+          let decrement_product_count_result = web::block(move || {
+            decrement_product_count(
+              &app_data.service_container.basket,
+              &body.product_id,
+              &user_id,
             )
           })
-          .await
-          .map(|(option, collection, product_id, user_id)| match option {
-            Some(_document) => match basket::remove_product(&collection, &product_id, &user_id) {
-              Ok(_update) => HttpResponse::Ok().body("Success"),
-              Err(e) => {
-                println!("product can not be removed: {}", e);
-                HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-              }
-            },
-            None => match basket::update_product_count(&collection, &product_id, &user_id, -1) {
-              Ok(_document) => HttpResponse::Ok().body("Success"),
-              Err(e) => {
-                println!("product can not be decremented: {}", e);
-                HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-              }
-            },
-          })
-          .map_err(|err| match err {
-            error::BlockingError::Error(error) => {
-              println!("error, {:?}", error);
-              HttpResponse::BadRequest().body("Error while getting active basket")
-            }
-            error::BlockingError::Canceled => {
-              HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-            }
-          })
+          .await;
+
+          match decrement_product_count_result {
+            Ok(_response) => HttpResponse::Ok().finish(),
+            Err(_e) => HttpResponse::InternalServerError().finish(),
+          }
         }
       }
       Err(e) => {
         println!("Error while stringifying user_id header, {:?}", e);
-        Ok(HttpResponse::NotFound().body("user id is not type of string"))
+        HttpResponse::NotFound().body("user id is not type of string")
       }
     },
-    None => Ok(HttpResponse::NotFound().body("user does not exist")),
+    None => HttpResponse::NotFound().body("user does not exist"),
   }
 }
