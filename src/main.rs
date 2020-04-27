@@ -23,7 +23,6 @@ impl ServiceContainer {
 
 pub struct AppState {
   listing_collection: Collection,
-  content_collection: Collection,
   user_collection: Collection,
   service_container: ServiceContainer,
 }
@@ -37,7 +36,6 @@ async fn main() -> std::io::Result<()> {
   let client = Client::with_options(client_options).unwrap();
   let db = client.database(dotenv!("DB_NAME"));
   let listing_collection = db.collection(dotenv!("DB_LISTING_COLLECTION"));
-  let content_collection = db.collection(dotenv!("DB_CONTENT_COLLECTION"));
   let user_collection = db.collection(dotenv!("DB_USER_COLLECTION"));
   let basket_collection = db.collection(dotenv!("DB_BASKET_COLLECTION"));
   let address_collection = db.collection(dotenv!("DB_ADDRESS_COLLECTION"));
@@ -50,7 +48,6 @@ async fn main() -> std::io::Result<()> {
     App::new()
       .data(AppState {
         listing_collection: listing_collection.clone(),
-        content_collection: content_collection.clone(),
         user_collection: user_collection.clone(),
         service_container,
       })
@@ -60,7 +57,6 @@ async fn main() -> std::io::Result<()> {
           .finish(),
       )
       .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
-      .service(web::scope("/contents").route("", web::get().to(controller::content::get)))
       .service(
         web::scope("/basket")
           .wrap(middleware::user::Resolve)

@@ -24,13 +24,13 @@ pub fn add_to_basket(
 
 fn user_has_active_basket(
   basket_service: &BasketService,
-  active_basket: &bson::ordered::OrderedDocument,
+  _active_basket: &bson::ordered::OrderedDocument,
   product_id: &str,
   user_id: &str,
 ) -> Result<String, Error> {
   match basket_service.update_product_count(product_id, user_id, 1) {
     Ok(update) => match update {
-      Some(doc) => Ok("Product count is incremented successfully".to_string()),
+      Some(_doc) => Ok("Product count is incremented successfully".to_string()),
       None => {
         // product is not present in basket
         match basket_service.add_item(product_id, user_id) {
