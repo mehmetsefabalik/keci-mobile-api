@@ -1,9 +1,6 @@
 use crate::action::basket::{add_to_basket, decrement_product_count};
-use crate::model::basket::{Basket, BasketItem};
-use crate::service::user;
+use crate::action::user::create_anon_with_basket;
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
-use bson::oid::ObjectId;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -54,57 +51,26 @@ pub async fn add(
     }
     None => {
       // anon
-      // TODO: wrap with web::block
-      match user::create_anon(app_data.user_collection.clone()) {
-        Ok(user_result) => match user_result.inserted_id {
-          bson::Bson::ObjectId(id) => {
-            let claims = crate::controller::user::Claims {
-              sub: id.to_string(),
-              user_type: String::from("guest"),
-            };
-            let token = encode(
-              &Header::default(),
-              &claims,
-              &EncodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
-            )
-            .unwrap();
-            let cookie = format!("access_token={}", token);
+      let result = web::block(move || {
+        create_anon_with_basket(
+          app_data.service_container.user.clone(),
+          app_data.service_container.basket.clone(),
+          body.product_id.clone(),
+        )
+      })
+      .await;
 
-            let basket_item = BasketItem::new(
-              ObjectId::with_string(&product_id).expect("Invalid ObjectId string"),
-              1,
-            );
-            let basket = Basket::new(
-              ObjectId::with_string(&id.to_string()).expect("Invalid ObjectId string"),
-              vec![basket_item],
-              true,
-            );
-
-            let create_basket_result =
-              web::block(move || app_data.service_container.basket.create(&basket)).await;
-
-            match create_basket_result {
-              Ok(basket_result) => HttpResponse::Ok()
-                .header(
-                  "Set-Cookie",
-                  http::header::HeaderValue::from_str(&cookie).unwrap(),
-                )
-                .json(basket_result.inserted_id),
-              Err(e) => {
-                println!("Error while creating basket for anon user, {:?}", e);
-                HttpResponse::InternalServerError().finish()
-              }
-            }
-          }
-          _ => {
-            println!("Error: inserted anon user id is not ObjectId");
+      match result {
+        Ok(cookie) => HttpResponse::Ok()
+          .header(
+            "Set-Cookie",
+            http::header::HeaderValue::from_str(&cookie).unwrap(),
+          )
+          .finish(),
+          Err(e) => {
+            println!("{:?}", e);
             HttpResponse::InternalServerError().finish()
           }
-        },
-        Err(e) => {
-          println!("Error while creating anon user: {:?}", e);
-          HttpResponse::InternalServerError().finish()
-        }
       }
     }
   }

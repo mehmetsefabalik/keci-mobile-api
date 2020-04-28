@@ -14,3 +14,9 @@ impl User {
     }
   }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Claims {
+  pub sub: String,
+  pub user_type: String,
+}

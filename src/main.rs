@@ -3,6 +3,7 @@ use mongodb::{options::ClientOptions, Client, Collection};
 use service::address::AddressService;
 use service::basket::BasketService;
 use service::listing::ListingService;
+use service::user::UserService;
 
 mod action;
 mod controller;
@@ -15,14 +16,21 @@ pub struct ServiceContainer {
   address: AddressService,
   basket: BasketService,
   listing: ListingService,
+  user: UserService,
 }
 
 impl ServiceContainer {
-  pub fn new(address: AddressService, basket: BasketService, listing: ListingService) -> Self {
+  pub fn new(
+    address: AddressService,
+    basket: BasketService,
+    listing: ListingService,
+    user: UserService,
+  ) -> Self {
     ServiceContainer {
       address,
       basket,
       listing,
+      user,
     }
   }
 }
@@ -50,6 +58,7 @@ async fn main() -> std::io::Result<()> {
       AddressService::new(address_collection.clone()),
       BasketService::new(basket_collection.clone()),
       ListingService::new(listing_collection.clone()),
+      UserService::new(user_collection.clone()),
     );
     App::new()
       .data(AppState {

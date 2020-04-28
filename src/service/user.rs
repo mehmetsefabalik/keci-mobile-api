@@ -1,57 +1,55 @@
-use bson::{doc, oid::ObjectId, to_bson, Bson};
+use crate::model::user::User;
+use crate::traits::service::Creator;
+use bson::{doc, oid::ObjectId, ordered::OrderedDocument, to_bson, Bson};
 use mongodb::{
   error::{Error, ErrorKind},
   results::{InsertOneResult, UpdateResult},
   Collection,
 };
-use crate::model::user::User;
 
-pub fn get(
+#[derive(Clone)]
+pub struct UserService {
   collection: Collection,
-  phone: &String,
-) -> Result<
-  (
-    Option<bson::ordered::OrderedDocument>,
-    Collection
-  ),
-  Error,
-> {
-  match collection.find_one(doc! {"phone": phone}, None) {
-    Ok(result) => Ok((result, collection)),
-    Err(e) => Err(e),
+}
+
+impl UserService {
+  pub fn new(collection: Collection) -> Self {
+    UserService { collection }
+  }
+  pub fn get(&self, phone: &String) -> Result<Option<OrderedDocument>, Error> {
+    self.collection.find_one(doc! {"phone": phone}, None)
+  }
+
+  pub fn create_anon(&self) -> Result<InsertOneResult, Error> {
+    self.collection.insert_one(doc! {}, None)
+  }
+
+  pub fn register(
+    &self,
+    user_id: &str,
+    phone: &str,
+    password: &str,
+  ) -> Result<UpdateResult, Error> {
+    self.collection.update_one(
+      doc! {"_id": ObjectId::with_string(&user_id).expect("Id not valid")},
+      doc! {"$set": {"phone": String::from(phone), "password": String::from(password)}},
+      None,
+    )
   }
 }
 
-pub fn create(
-  collection: Collection,
-  user: &User,
-) -> Result<InsertOneResult, Error> {
-  let serialized_user = to_bson(&user).unwrap();
-  if let Bson::Document(document) = serialized_user {
-    match collection.insert_one(document, None) {
-      Ok(insert_result) => Ok(insert_result),
-      Err(e) => Err(e),
+impl Creator<User> for UserService {
+  fn create(&self, user: &User) -> Result<InsertOneResult, Error> {
+    let serialized_user = to_bson(&user).unwrap();
+    if let Bson::Document(document) = serialized_user {
+      match self.collection.insert_one(document, None) {
+        Ok(insert_result) => Ok(insert_result),
+        Err(e) => Err(e),
+      }
+    } else {
+      Err(Error::from(ErrorKind::OperationError {
+        message: String::from("Can not create User"),
+      }))
     }
-  } else {
-    Err(Error::from(ErrorKind::OperationError {
-      message: String::from("Can not create User"),
-    }))
   }
-}
-
-pub fn create_anon(collection: Collection) -> Result<InsertOneResult, Error> {
-  collection.insert_one(doc! {}, None)
-}
-
-pub fn register(
-  collection: Collection,
-  user_id: &str,
-  phone: &str,
-  password: &str,
-) -> Result<UpdateResult, Error> {
-  collection.update_one(
-    doc! {"_id": ObjectId::with_string(&user_id).expect("Id not valid")},
-    doc! {"$set": {"phone": String::from(phone), "password": String::from(password)}},
-    None,
-  )
 }

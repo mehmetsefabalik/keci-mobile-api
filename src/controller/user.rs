@@ -13,12 +13,6 @@ pub struct CreateUserBody {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
-  pub sub: String,
-  pub user_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct UserAlreadyRegisteredResponse {
   pub user_already_registered: bool,
 }
