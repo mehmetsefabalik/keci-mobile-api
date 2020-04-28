@@ -86,18 +86,21 @@ pub fn create(
     Ok(user_result) => match user_result {
       Some(_user) => Ok(UserCreateResult::UserAlreadyExists),
       None => match user_id_option {
-        Some(user_id) => match user_service.register(&user_id, &phone, &password) {
-          Ok(user_result) => {
-            if user_result.modified_count == 1 {
-              let token = get_registered_user_token(user_id.to_string());
-              let cookie = format!("access_token={}", token);
-              Ok(UserCreateResult::UserCreated(cookie))
-            } else {
-              Ok(UserCreateResult::GuestUserNotRegistered)
+        Some(user_id) => {
+          let hashed = hash(&password, 4).unwrap();
+          match user_service.register(&user_id, &phone, &hashed) {
+            Ok(user_result) => {
+              if user_result.modified_count == 1 {
+                let token = get_registered_user_token(user_id.to_string());
+                let cookie = format!("access_token={}", token);
+                Ok(UserCreateResult::UserCreated(cookie))
+              } else {
+                Ok(UserCreateResult::GuestUserNotRegistered)
+              }
             }
+            Err(_e) => Err("Error while registering user".to_string()),
           }
-          Err(_e) => Err("Error while registering user".to_string()),
-        },
+        }
         None => {
           let hashed = hash(&password, 4).unwrap();
           let user = User::new(&phone, &hashed);
