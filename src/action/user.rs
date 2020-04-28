@@ -38,7 +38,7 @@ pub fn create_anon_with_basket(
       }
       _ => Err("Error: inserted anon user id is not ObjectId".to_string()),
     },
-    Err(e) => Err("Error while creating anon user: {:?}".to_string()),
+    Err(_e) => Err("Error while creating anon user: {:?}".to_string()),
   }
 }
 
@@ -84,7 +84,7 @@ pub fn create(
 ) -> Result<UserCreateResult, String> {
   match user_service.get(&phone) {
     Ok(user_result) => match user_result {
-      Some(user) => Ok(UserCreateResult::UserAlreadyExists),
+      Some(_user) => Ok(UserCreateResult::UserAlreadyExists),
       None => match user_id_option {
         Some(user_id) => match user_service.register(&user_id, &phone, &password) {
           Ok(user_result) => {
@@ -110,7 +110,7 @@ pub fn create(
               }
               _ => Err("Error: inserted user id is not type of ObjectId".to_string()),
             },
-            Err(e) => Err("Error while creating user".to_string()),
+            Err(_e) => Err("Error while creating user".to_string()),
           }
         }
       },
@@ -150,7 +150,7 @@ pub fn login(
           Ok(verified) => {
             if verified == true {
               match user_id_option {
-                Some(guest_id) => {
+                Some(_guest_id) => {
                   if user_type_option.unwrap() == "guest" {
                     // TODO: merge basket
                   }

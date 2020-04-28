@@ -19,7 +19,6 @@ pub async fn add(
   app_data: web::Data<crate::AppState>,
   body: web::Json<Body>,
 ) -> impl Responder {
-  let product_id = body.product_id.clone();
   match request.headers().get("user_id") {
     Some(user_id_header) => {
       // user

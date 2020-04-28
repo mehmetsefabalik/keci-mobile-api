@@ -1,5 +1,5 @@
 use actix_web::{web, App, HttpServer};
-use mongodb::{options::ClientOptions, Client, Collection};
+use mongodb::{options::ClientOptions, Client};
 use service::address::AddressService;
 use service::basket::BasketService;
 use service::listing::ListingService;
@@ -36,7 +36,6 @@ impl ServiceContainer {
 }
 
 pub struct AppState {
-  user_collection: Collection,
   service_container: ServiceContainer,
 }
 
@@ -61,10 +60,7 @@ async fn main() -> std::io::Result<()> {
       UserService::new(user_collection.clone()),
     );
     App::new()
-      .data(AppState {
-        user_collection: user_collection.clone(),
-        service_container,
-      })
+      .data(AppState { service_container })
       .wrap(
         actix_cors::Cors::new()
           .allowed_origin(dotenv!("ALLOWED_ORIGIN"))
