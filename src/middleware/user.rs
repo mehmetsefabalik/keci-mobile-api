@@ -84,7 +84,7 @@ where
           aud: None,
           algorithms: vec![Algorithm::HS256],
         };
-        match decode::<crate::controller::user::Claims>(
+        match decode::<crate::model::user::Claims>(
           token,
           &DecodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
           &validation,

@@ -1,10 +1,7 @@
-use actix_web::{error, http, web, HttpRequest, HttpResponse, Responder};
-use bcrypt::{hash, verify};
-use bson::{from_bson, to_bson};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use crate::action;
+use crate::action::user::{LoginResult, UserCreateResult};
+use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
-use crate::service::user;
-use crate::model::user::User;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct CreateUserBody {
@@ -22,105 +19,40 @@ pub async fn create(
   app_data: web::Data<crate::AppState>,
   body: web::Json<CreateUserBody>,
 ) -> impl Responder {
-  let phone = body.phone.clone();
-  web::block(move || user::get(app_data.user_collection.clone(), &phone))
-    .await
-    .map(|(get_user_result, user_collection)| match get_user_result {
-      Some(_) => HttpResponse::BadRequest().json(UserAlreadyRegisteredResponse {
-        user_already_registered: true,
-      }),
-      None => {
-        // TODO: CPU intensive task, wrap with web::block
-        let hashed = hash(&body.password, 4).unwrap();
+  let user_id;
+  match request.headers().get("user_id") {
+    Some(user_id_header) => {
+      user_id = Some(user_id_header.to_str().unwrap().to_string());
+    }
+    None => user_id = None,
+  }
 
-        match request.headers().get("user_id") {
-          Some(user_id_header) => {
-            // user
-            match user_id_header.to_str() {
-              Ok(user_id_str) => {
-                let user_id = String::from(user_id_str);
-                // TODO: call with web::block
-                match user::register(
-                  user_collection,
-                  &user_id,
-                  &body.phone,
-                  &hashed,
-                ) {
-                  Ok(register_user_result) => {
-                    if register_user_result.modified_count == 1 {
-                      let claims = Claims {
-                        sub: user_id.clone(),
-                        user_type: String::from("registered"),
-                      };
-                      let token = encode(
-                        &Header::default(),
-                        &claims,
-                        &EncodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
-                      )
-                      .unwrap();
-                      let cookie = format!("access_token={}", token);
-                      HttpResponse::Ok()
-                        .header(
-                          "Set-Cookie",
-                          http::header::HeaderValue::from_str(&cookie).unwrap(),
-                        )
-                        .json(user_id)
-                    } else {
-                      HttpResponse::BadRequest().json({})
-                    }
-                  }
-                  Err(_) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-                }
-              }
-              Err(e) => {
-                println!(
-                  "Error while getting string of user_id header value, {:?}",
-                  e
-                );
-                HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-              }
-            }
-          }
-          None => {
-            // anon
-            let user = User::new(&body.phone, &hashed);
-            // TODO: call with web::block
-            match user::create(user_collection, &user) {
-              Ok(create_user_result) => match create_user_result.inserted_id {
-                bson::Bson::ObjectId(id) => {
-                  let claims = Claims {
-                    sub: id.to_string(),
-                    user_type: String::from("registered"),
-                  };
-                  let token = encode(
-                    &Header::default(),
-                    &claims,
-                    &EncodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
-                  )
-                  .unwrap();
-                  let cookie = format!("access_token={}", token);
-                  HttpResponse::Ok()
-                    .header(
-                      "Set-Cookie",
-                      http::header::HeaderValue::from_str(&cookie).unwrap(),
-                    )
-                    .json(id)
-                }
-                _ => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-              },
-              Err(_) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-            }
-          }
-        }
-      }
-    })
-    .map_err(|err| match err {
-      error::BlockingError::Error(error) => {
-        println!("error, {:?}", error);
-        HttpResponse::BadRequest().body("Error while searching user")
-      }
-      error::BlockingError::Canceled => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-    })
+  let result = web::block(move || {
+    action::user::create(
+      app_data.service_container.user.clone(),
+      body.phone.clone(),
+      body.password.clone(),
+      user_id,
+    )
+  })
+  .await;
+
+  match result {
+    Ok(response) => match response {
+      UserCreateResult::UserCreated(cookie) => HttpResponse::Ok()
+        .header(
+          "Set-Cookie",
+          http::header::HeaderValue::from_str(&cookie).unwrap(),
+        )
+        .finish(),
+      UserCreateResult::GuestUserNotRegistered => HttpResponse::BadRequest().finish(),
+      UserCreateResult::UserAlreadyExists => HttpResponse::BadRequest().finish(),
+    },
+    Err(e) => {
+      println!("Error while creating user: {:?}", e);
+      HttpResponse::InternalServerError().finish()
+    }
+  }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -152,122 +84,51 @@ pub async fn login(
   app_data: web::Data<crate::AppState>,
   body: web::Json<CreateUserBody>,
 ) -> impl Responder {
-  let phone = body.phone.clone();
-  web::block(move || user::get(app_data.user_collection.clone(), &phone))
-    .await
-    .map(
-      |(get_user_result, _user_collection)| match get_user_result {
-        Some(user_document) => {
-          let user_bson = to_bson(&user_document).unwrap();
-          let user = from_bson::<UserJson>(user_bson).unwrap();
-          let verify_result = verify(&body.password, &user.password);
-          match verify_result {
-            Ok(verified) => {
-              if verified == true {
-                match request.headers().get("user_id") {
-                  Some(user_id_header) => {
-                    // user
-                    match user_id_header.to_str() {
-                      Ok(guest_id_str) => {
-                        let user_type = request
-                          .headers()
-                          .get("user_type")
-                          .unwrap()
-                          .to_str()
-                          .unwrap();
-                        if user_type == "guest" {
-                          // logging in while s/he is guest
-                          let claims = Claims {
-                            sub: user._id.to_string(),
-                            user_type: String::from("registered"),
-                          };
-                          let token = encode(
-                            &Header::default(),
-                            &claims,
-                            &EncodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
-                          )
-                          .unwrap();
-                          let cookie = format!("access_token={}; path=/", token);
-                          HttpResponse::Ok()
-                            .header(
-                              "Set-Cookie",
-                              http::header::HeaderValue::from_str(&cookie).unwrap(),
-                            )
-                            .json(AlreadyGuestResponse {
-                              already_guest: true,
-                              guest_id: String::from(guest_id_str),
-                              registered_id: user._id.to_string()
-                            })
-                        } else {
-                          // logging in while s/he is registered
-                          let claims = Claims {
-                            sub: user._id.to_string(),
-                            user_type: String::from("registered"),
-                          };
-                          let token = encode(
-                            &Header::default(),
-                            &claims,
-                            &EncodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
-                          )
-                          .unwrap();
-                          let cookie = format!("access_token={}; path=/", token);
-                          HttpResponse::Ok()
-                            .header(
-                              "Set-Cookie",
-                              http::header::HeaderValue::from_str(&cookie).unwrap(),
-                            )
-                            .json(user._id.to_string())
-                        }
-                      }
-                      Err(e) => {
-                        println!(
-                          "Error while getting string of user_id header value, {:?}",
-                          e
-                        );
-                        HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR)
-                      }
-                    }
-                  }
-                  None => {
-                    // not a user before
-                    let claims = Claims {
-                      sub: user._id.to_string(),
-                      user_type: String::from("registered"),
-                    };
-                    let token = encode(
-                      &Header::default(),
-                      &claims,
-                      &EncodingKey::from_secret(dotenv!("JWT_SECRET").as_ref()),
-                    )
-                    .unwrap();
-                    let cookie = format!("access_token={}; path=/", token);
-                    HttpResponse::Ok()
-                      .header(
-                        "Set-Cookie",
-                        http::header::HeaderValue::from_str(&cookie).unwrap(),
-                      )
-                      .json(user._id.to_string())
-                  }
-                }
-              } else {
-                HttpResponse::BadRequest().json(WrongPasswordResponse {
-                  wrong_password: true,
-                })
-              }
-            }
-            Err(_e) => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-          }
-        }
-        None => HttpResponse::BadRequest().json(UserNotExistResponse {
-          user_not_exist: true,
-        }),
-      },
+  let user_id;
+  let user_type;
+  match request.headers().get("user_id") {
+    Some(user_id_header) => {
+      user_id = Some(user_id_header.to_str().unwrap().to_string());
+      user_type = Some(
+        request
+          .headers()
+          .get("user_type")
+          .unwrap()
+          .to_str()
+          .unwrap()
+          .to_string(),
+      );
+    }
+    None => {
+      user_id = None;
+      user_type = None;
+    }
+  }
+  let result = web::block(move || {
+    action::user::login(
+      app_data.service_container.user.clone(),
+      body.phone.clone(),
+      body.password.clone(),
+      user_id,
+      user_type,
     )
-    .map_err(|err| match err {
-      error::BlockingError::Error(error) => {
-        println!("error, {:?}", error);
-        HttpResponse::BadRequest().body("Error while searching user")
-      }
-      error::BlockingError::Canceled => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
-    })
+  })
+  .await;
+
+  match result {
+    Ok(login_result) => match login_result {
+      LoginResult::Verified(cookie) => HttpResponse::Ok()
+        .header(
+          "Set-Cookie",
+          http::header::HeaderValue::from_str(&cookie).unwrap(),
+        )
+        .finish(),
+      LoginResult::NotVerified => HttpResponse::BadRequest().finish(),
+      LoginResult::UserNotExists => HttpResponse::BadRequest().finish(),
+    },
+    Err(e) => {
+      println!("Error while creating user: {:?}", e);
+      HttpResponse::InternalServerError().finish()
+    }
+  }
 }
