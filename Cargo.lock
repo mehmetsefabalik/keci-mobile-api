@@ -1196,6 +1196,7 @@ dependencies = [
  "futures",
  "jsonwebtoken",
  "mongodb",
+ "num_cpus",
  "serde",
 ]
 

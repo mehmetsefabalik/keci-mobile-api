@@ -44,6 +44,7 @@ extern crate dotenv_codegen;
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+  println!("number of cpus: {}", num_cpus::get());
   let client_options = ClientOptions::parse(dotenv!("DB_URL")).unwrap();
   let client = Client::with_options(client_options).unwrap();
   let db = client.database(dotenv!("DB_NAME"));
