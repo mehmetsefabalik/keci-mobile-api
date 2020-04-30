@@ -8,6 +8,7 @@ pub enum CreateOrderResponse {
   OrderCreated,
   ActiveBasketNotFound,
   AddressNotFound,
+  BasketToDeleteNotFound,
 }
 
 pub fn create_order(
@@ -37,7 +38,19 @@ pub fn create_order(
               let order_result = order_service.create(&order);
 
               match order_result {
-                Ok(_order) => Ok(CreateOrderResponse::OrderCreated),
+                Ok(_order) => {
+                  let delete_basket_result = basket_service.delete(&user_id);
+
+                  match delete_basket_result {
+                    Ok(delete_basket_option) => {
+                      match delete_basket_option {
+                        Some(_basket) => Ok(CreateOrderResponse::OrderCreated),
+                        None => Ok(CreateOrderResponse::BasketToDeleteNotFound)
+                      }
+                    },
+                    Err(_e) => Err("Error while deleting basket".to_string())
+                  }
+                },
                 Err(_e) => Err("Error while creating order".to_string())
               }
             }

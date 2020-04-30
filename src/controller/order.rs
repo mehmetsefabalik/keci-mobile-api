@@ -40,6 +40,9 @@ pub async fn create(
                 },
                 CreateOrderResponse::AddressNotFound => {
                   HttpResponse::BadRequest().body("Address Not Found")
+                },
+                CreateOrderResponse::BasketToDeleteNotFound => {
+                  HttpResponse::BadRequest().body("Basket To Delete Not Found")
                 }
               }
             },

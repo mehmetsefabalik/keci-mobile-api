@@ -115,4 +115,13 @@ impl BasketService {
       None,
     )
   }
+
+  pub fn delete(&self, user_id: &str) -> Result<Option<OrderedDocument>, Error> {
+    let query = doc! {
+      "user_id": ObjectId::with_string(user_id).expect("Id not valid"),
+      "active": true
+    };
+    let update = doc! {"$set": {"active": false}};
+    self.collection.find_one_and_update(query, update, None)
+  }
 }
