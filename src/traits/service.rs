@@ -6,10 +6,14 @@ pub trait Creator<T> {
 }
 
 pub trait Getter {
-  fn get_all(&self, id: &str) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String>;
+  fn get_all(&self, user_id: &str) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String>;
 }
 
 
 pub trait Updater<T> {
   fn update(&self, model: &T, id: &str) -> Result<UpdateResult, Error>;
+}
+
+pub trait Finder {
+  fn find(&self, id: &str) -> Result<Option<bson::ordered::OrderedDocument>, Error>;
 }

@@ -1,5 +1,5 @@
 use crate::model::address::Address;
-use crate::traits::service::{Creator, Getter, Updater};
+use crate::traits::service::{Creator, Finder, Getter, Updater};
 use bson::{doc, ordered};
 use bson::{oid::ObjectId, to_bson, Bson};
 use mongodb::{
@@ -10,6 +10,7 @@ use mongodb::{
 };
 use std::vec;
 
+#[derive(Clone)]
 pub struct AddressService {
   collection: Collection,
 }
@@ -72,5 +73,14 @@ impl Updater<Address> for AddressService {
         message: String::from("Can not update address"),
       }))
     }
+  }
+}
+
+impl Finder for AddressService {
+  fn find(&self, id: &str) -> Result<Option<bson::ordered::OrderedDocument>, Error> {
+    self.collection.find_one(
+      doc! {"_id": ObjectId::with_string(id).expect("Id not valid")},
+      None,
+    )
   }
 }

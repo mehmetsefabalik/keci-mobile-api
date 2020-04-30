@@ -102,13 +102,10 @@ impl BasketService {
     product_id: String,
     user_id: String,
   ) -> Result<Option<OrderedDocument>, Error> {
-    match self.collection.find_one(
-    doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"),"content": {"product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "count": 1}, "active": true},
-    None
-  ) {
-    Ok(doc) => Ok(doc),
-    Err(e) => Err(e)
-  }
+    self.collection.find_one(
+      doc! {"user_id": ObjectId::with_string(&user_id).expect("Id not valid"),"content": {"product_id": ObjectId::with_string(&product_id).expect("Id not valid"), "count": 1}, "active": true},
+      None
+    )
   }
 
   pub fn remove_product(&self, product_id: &str, user_id: &str) -> Result<UpdateResult, Error> {

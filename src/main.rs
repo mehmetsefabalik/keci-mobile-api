@@ -4,6 +4,7 @@ use service::address::AddressService;
 use service::basket::BasketService;
 use service::listing::ListingService;
 use service::user::UserService;
+use service::order::OrderService;
 
 mod action;
 mod controller;
@@ -17,6 +18,7 @@ pub struct ServiceContainer {
   basket: BasketService,
   listing: ListingService,
   user: UserService,
+  order: OrderService,
 }
 
 impl ServiceContainer {
@@ -25,12 +27,14 @@ impl ServiceContainer {
     basket: BasketService,
     listing: ListingService,
     user: UserService,
+    order: OrderService,
   ) -> Self {
     ServiceContainer {
       address,
       basket,
       listing,
       user,
+      order,
     }
   }
 }
@@ -52,6 +56,7 @@ async fn main() -> std::io::Result<()> {
   let user_collection = db.collection(dotenv!("DB_USER_COLLECTION"));
   let basket_collection = db.collection(dotenv!("DB_BASKET_COLLECTION"));
   let address_collection = db.collection(dotenv!("DB_ADDRESS_COLLECTION"));
+  let order_collection = db.collection(dotenv!("DB_ORDER_COLLECTION"));
 
   HttpServer::new(move || {
     let service_container = ServiceContainer::new(
@@ -59,6 +64,7 @@ async fn main() -> std::io::Result<()> {
       BasketService::new(basket_collection.clone()),
       ListingService::new(listing_collection.clone()),
       UserService::new(user_collection.clone()),
+      OrderService::new(order_collection.clone()),
     );
     App::new()
       .data(AppState { service_container })
@@ -94,7 +100,7 @@ async fn main() -> std::io::Result<()> {
       .service(
         web::scope("/orders")
           .wrap(middleware::user::Resolve)
-          .route("", web::post().to(controller::address::create)),
+          .route("", web::post().to(controller::order::create)),
       )
   })
   .bind("0.0.0.0:3003")?
