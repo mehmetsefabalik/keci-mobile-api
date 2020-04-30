@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 actix-web = "2"
 actix-service = "1.0.5"
-actix-rt = "1"
+actix-rt = "1.1.0"
 serde = "1.0.104"
 mongodb = "0.9.2"
 bson = "0.14.0"
