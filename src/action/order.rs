@@ -29,8 +29,8 @@ pub fn create_order(
             Some(basket) => {
               let order = Order::new(
                 bson::oid::ObjectId::with_string(&user_id).expect("Invalid ObjectId string"),
-                address,
                 basket,
+                address,
                 0,
                 );
 
