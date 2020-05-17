@@ -3,8 +3,8 @@ use mongodb::{options::ClientOptions, Client};
 use service::address::AddressService;
 use service::basket::BasketService;
 use service::listing::ListingService;
-use service::user::UserService;
 use service::order::OrderService;
+use service::user::UserService;
 
 mod action;
 mod controller;
@@ -47,10 +47,7 @@ pub struct AppState {
 extern crate dotenv_codegen;
 
 #[actix_rt::main]
-async fn main() -> std::io::Result<()> {
-  println!("number of cpus: {}", num_cpus::get());
-  let client_options = ClientOptions::parse(dotenv!("DB_URL")).unwrap();
-  let client = Client::with_options(client_options).unwrap();
+async fn run(client: Client) -> std::io::Result<()> {
   let db = client.database(dotenv!("DB_NAME"));
   let listing_collection = db.collection(dotenv!("DB_LISTING_COLLECTION"));
   let user_collection = db.collection(dotenv!("DB_USER_COLLECTION"));
@@ -68,11 +65,6 @@ async fn main() -> std::io::Result<()> {
     );
     App::new()
       .data(AppState { service_container })
-      .wrap(
-        actix_cors::Cors::new()
-          .allowed_origin(dotenv!("ALLOWED_ORIGIN"))
-          .finish(),
-      )
       .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
       .service(
         web::scope("/basket")
@@ -106,4 +98,11 @@ async fn main() -> std::io::Result<()> {
   .bind("0.0.0.0:3003")?
   .run()
   .await
+}
+
+fn main() -> std::io::Result<()> {
+  println!("number of cpus: {}", num_cpus::get());
+  let client_options = ClientOptions::parse(dotenv!("DB_URL")).unwrap();
+  let client = Client::with_options(client_options).unwrap();
+  run(client)
 }
