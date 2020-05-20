@@ -1,5 +1,6 @@
 use crate::action::order::{create_order, CreateOrderResponse};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use crate::traits::service::Getter;
 use serde::{Deserialize};
 
 #[derive(Deserialize, Debug, Clone)]
@@ -61,5 +62,32 @@ pub async fn create(
     None => {
       HttpResponse::Unauthorized().finish()
     }
+  }
+}
+
+pub async fn get_all(request: HttpRequest, app_data: web::Data<crate::AppState>) -> impl Responder {
+  match request.headers().get("user_id") {
+    Some(user_id_header) => match user_id_header.to_str() {
+      Ok(user_id_str) => {
+        let user_id = String::from(user_id_str);
+        let orders =
+          web::block(move || app_data.service_container.order.get_all(&user_id)).await;
+        match orders {
+          Ok(response) => HttpResponse::Ok().json(response),
+          Err(e) => {
+            println!("Error while creating address, {:?}", e);
+            HttpResponse::InternalServerError().finish()
+          }
+        }
+      }
+      Err(_e) => {
+        println!(
+          "Error while stringifying user_id header, {:?}",
+          user_id_header
+        );
+        HttpResponse::BadRequest().finish()
+      }
+    },
+    None => HttpResponse::Unauthorized().finish(),
   }
 }
