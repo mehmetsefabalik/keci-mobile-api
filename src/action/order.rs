@@ -1,8 +1,8 @@
+use crate::model::order::{Order, Status};
 use crate::service::address::AddressService;
 use crate::service::basket::BasketService;
 use crate::service::order::OrderService;
-use crate::traits::service::{Finder, Creator};
-use crate::model::order::Order;
+use crate::traits::service::{Creator, Finder};
 
 pub enum CreateOrderResponse {
   OrderCreated,
@@ -32,8 +32,8 @@ pub fn create_order(
                 bson::oid::ObjectId::with_string(&user_id).expect("Invalid ObjectId string"),
                 basket,
                 address,
-                0,
-                );
+                Status::Taken,
+              );
 
               let order_result = order_service.create(&order);
 
@@ -42,16 +42,14 @@ pub fn create_order(
                   let delete_basket_result = basket_service.delete(&user_id);
 
                   match delete_basket_result {
-                    Ok(delete_basket_option) => {
-                      match delete_basket_option {
-                        Some(_basket) => Ok(CreateOrderResponse::OrderCreated),
-                        None => Ok(CreateOrderResponse::BasketToDeleteNotFound)
-                      }
+                    Ok(delete_basket_option) => match delete_basket_option {
+                      Some(_basket) => Ok(CreateOrderResponse::OrderCreated),
+                      None => Ok(CreateOrderResponse::BasketToDeleteNotFound),
                     },
-                    Err(_e) => Err("Error while deleting basket".to_string())
+                    Err(_e) => Err("Error while deleting basket".to_string()),
                   }
-                },
-                Err(_e) => Err("Error while creating order".to_string())
+                }
+                Err(_e) => Err("Error while creating order".to_string()),
               }
             }
             None => Ok(CreateOrderResponse::ActiveBasketNotFound),

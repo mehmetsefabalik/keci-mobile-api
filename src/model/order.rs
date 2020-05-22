@@ -1,12 +1,12 @@
-use serde::{Deserialize, Serialize};
 use bson::ordered::OrderedDocument;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Order {
   user_id: bson::oid::ObjectId,
   address: OrderedDocument,
   basket: OrderedDocument,
-  total_amount: i32,
+  status: i32,
 }
 
 impl Order {
@@ -14,13 +14,22 @@ impl Order {
     user_id: bson::oid::ObjectId,
     basket: OrderedDocument,
     address: OrderedDocument,
-    total_amount: i32,
+    status: Status,
   ) -> Self {
     Order {
       user_id,
       address,
       basket,
-      total_amount,
+      status: status as i32,
     }
   }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Status {
+  Cancelled,
+  Taken,
+  Preparing,
+  Shipping,
+  Shipped,
 }
