@@ -32,7 +32,7 @@ pub async fn create(
 
           match result {
             Ok(response) => match response {
-              CreateOrderResponse::OrderCreated => HttpResponse::Ok().finish(),
+              CreateOrderResponse::OrderCreated(id) => HttpResponse::Ok().json(id),
               CreateOrderResponse::ActiveBasketNotFound => {
                 HttpResponse::BadRequest().body("Active Basket Not Found")
               }

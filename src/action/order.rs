@@ -5,7 +5,7 @@ use crate::service::order::OrderService;
 use crate::traits::service::{Creator, Finder};
 
 pub enum CreateOrderResponse {
-  OrderCreated,
+  OrderCreated(bson::Bson),
   ActiveBasketNotFound,
   AddressNotFound,
   BasketToDeleteNotFound,
@@ -43,7 +43,7 @@ pub fn create_order(
 
                   match delete_basket_result {
                     Ok(delete_basket_option) => match delete_basket_option {
-                      Some(_basket) => Ok(CreateOrderResponse::OrderCreated),
+                      Some(_basket) => Ok(CreateOrderResponse::OrderCreated(_order.inserted_id)),
                       None => Ok(CreateOrderResponse::BasketToDeleteNotFound),
                     },
                     Err(_e) => Err("Error while deleting basket".to_string()),
