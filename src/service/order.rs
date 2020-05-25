@@ -14,6 +14,13 @@ impl OrderService {
   pub fn new(collection: Collection) -> Self {
     OrderService { collection }
   }
+
+  pub fn find(&self, id: &str, user_id: &str) -> Result<Option<bson::ordered::OrderedDocument>, Error> {
+    self.collection.find_one(
+      doc! {"_id": ObjectId::with_string(id).expect("Id not valid"), "user_id": ObjectId::with_string(user_id).expect("user_id not valid")},
+      None,
+    )
+  }
 }
 
 impl Creator<Order> for OrderService {

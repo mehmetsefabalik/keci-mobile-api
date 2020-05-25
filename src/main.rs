@@ -93,6 +93,7 @@ async fn run(client: Client) -> std::io::Result<()> {
         web::scope("/orders")
           .wrap(middleware::user::Resolve)
           .route("", web::post().to(controller::order::create))
+          .route("/{id}", web::get().to(controller::order::find))
           .route("", web::get().to(controller::order::get_all)),
       )
   })
