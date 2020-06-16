@@ -10,6 +10,7 @@ pub struct CreateAddressBody {
   surname: String,
   title: String,
   text: String,
+  phone: String,
   district_id: i32,
   neighborhood_id: i32,
 }
@@ -34,6 +35,7 @@ pub async fn create(
           &body.surname,
           &body.title,
           &body.text,
+          &body.phone,
           body.district_id,
           body.neighborhood_id,
         );
@@ -112,6 +114,7 @@ pub async fn update(
           &body.surname,
           &body.title,
           &body.text,
+          &body.phone,
           body.district_id,
           body.neighborhood_id,
         );

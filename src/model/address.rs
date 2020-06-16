@@ -8,6 +8,7 @@ pub struct Address {
   surname: String,
   title: String,
   text: String,
+  phone: String,
   district_id: i32,
   neighborhood_id: i32,
 }
@@ -19,6 +20,7 @@ impl Address {
     surname: &str,
     title: &str,
     text: &str,
+    phone: &str,
     district_id: i32,
     neighborhood_id: i32,
   ) -> Address {
@@ -27,6 +29,7 @@ impl Address {
       name: String::from(name),
       surname: String::from(surname),
       title: String::from(title),
+      phone: String::from(phone),
       text: String::from(text),
       district_id,
       neighborhood_id,
