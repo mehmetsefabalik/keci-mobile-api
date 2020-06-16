@@ -26,7 +26,8 @@ impl OrderService {
 impl Creator<Order> for OrderService {
   fn create(&self, order: &Order) -> Result<InsertOneResult, Error> {
     let serialized_order = to_bson(&order).unwrap();
-    if let Bson::Document(document) = serialized_order {
+    if let Bson::Document(mut document) = serialized_order {
+      document.insert("created_at", chrono::Utc::now());
       match self.collection.insert_one(document, None) {
         Ok(insert_result) => Ok(insert_result),
         Err(e) => Err(e),

@@ -53,7 +53,8 @@ impl BasketService {
 
   pub fn create(&self, basket: &Basket) -> Result<InsertOneResult, Error> {
     let serialized_basket = to_bson(&basket).unwrap();
-    if let Bson::Document(document) = serialized_basket {
+    if let Bson::Document(mut document) = serialized_basket {
+      document.insert("created_at", chrono::Utc::now());
       match self.collection.insert_one(document, None) {
         Ok(insert_result) => Ok(insert_result),
         Err(e) => Err(e),

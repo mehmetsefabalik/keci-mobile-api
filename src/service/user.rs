@@ -21,7 +21,7 @@ impl UserService {
   }
 
   pub fn create_anon(&self) -> Result<InsertOneResult, Error> {
-    self.collection.insert_one(doc! {}, None)
+    self.collection.insert_one(doc! {"created_at": chrono::Utc::now()}, None)
   }
 
   pub fn register(
@@ -32,7 +32,7 @@ impl UserService {
   ) -> Result<UpdateResult, Error> {
     self.collection.update_one(
       doc! {"_id": ObjectId::with_string(&user_id).expect("Id not valid")},
-      doc! {"$set": {"phone": String::from(phone), "password": String::from(password)}},
+      doc! {"$set": {"phone": String::from(phone), "password": String::from(password)}, "updated_at": chrono::Utc::now()},
       None,
     )
   }
@@ -41,7 +41,8 @@ impl UserService {
 impl Creator<User> for UserService {
   fn create(&self, user: &User) -> Result<InsertOneResult, Error> {
     let serialized_user = to_bson(&user).unwrap();
-    if let Bson::Document(document) = serialized_user {
+    if let Bson::Document(mut document) = serialized_user {
+      document.insert("created_at", chrono::Utc::now());
       match self.collection.insert_one(document, None) {
         Ok(insert_result) => Ok(insert_result),
         Err(e) => Err(e),

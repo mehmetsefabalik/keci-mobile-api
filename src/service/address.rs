@@ -24,7 +24,8 @@ impl AddressService {
 impl Creator<Address> for AddressService {
   fn create(&self, address: &Address) -> Result<InsertOneResult, Error> {
     let serialized_address = to_bson(&address).unwrap();
-    if let Bson::Document(document) = serialized_address {
+    if let Bson::Document(mut document) = serialized_address {
+      document.insert("created_at", chrono::Utc::now());
       match self.collection.insert_one(document, None) {
         Ok(insert_result) => Ok(insert_result),
         Err(e) => Err(e),
@@ -62,7 +63,8 @@ impl Getter for AddressService {
 impl Updater<Address> for AddressService {
   fn update(&self, address: &Address, id: &str) -> Result<UpdateResult, Error> {
     let serialized_address = to_bson(&address).unwrap();
-    if let Bson::Document(document) = serialized_address {
+    if let Bson::Document(mut document) = serialized_address {
+      document.insert("updated_at", chrono::Utc::now());
       self.collection.replace_one(
         doc! {"_id": ObjectId::with_string(id).expect("address id not valid")},
         document,
