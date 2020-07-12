@@ -13,7 +13,7 @@ impl ListingService {
   pub fn get(&self) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
     let pipeline = vec![
       doc! {
-        "$match": doc! {"visible": true}
+        "$match": doc! {"visible": true, "homepage": true}
       },
       doc! {
         "$lookup": doc! {"from": "product", "localField": "product_id", "foreignField": "_id", "as": "product"}
