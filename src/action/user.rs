@@ -14,6 +14,8 @@ pub fn create_anon_with_basket(
   user_service: UserService,
   basket_service: BasketService,
   product_id: String,
+  seller_id: String,
+  listing_id: String,
 ) -> Result<String, String> {
   match user_service.create_anon() {
     Ok(user_result) => match user_result.inserted_id {
@@ -22,7 +24,9 @@ pub fn create_anon_with_basket(
         let cookie = format!("access_token={}", token);
 
         let basket_item = BasketItem::new(
-          ObjectId::with_string(&product_id).expect("Invalid ObjectId string"),
+          ObjectId::with_string(&product_id).expect("product_id: Invalid ObjectId string"),
+          ObjectId::with_string(&seller_id).expect("seller_id: Invalid ObjectId string"),
+          ObjectId::with_string(&listing_id).expect("listing_id: Invalid ObjectId string"),
           1,
         );
         let basket = Basket::new(

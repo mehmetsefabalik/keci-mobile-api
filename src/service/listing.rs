@@ -1,4 +1,5 @@
-use bson::{doc, ordered, oid::ObjectId};
+use crate::traits::service::Finder;
+use bson::{doc, oid::ObjectId, ordered};
 use mongodb::Collection;
 use std::vec;
 
@@ -10,7 +11,7 @@ impl ListingService {
   pub fn new(collection: Collection) -> Self {
     ListingService { collection }
   }
-  pub fn get(&self) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
+  pub fn get_for_homepage(&self) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
     let pipeline = vec![
       doc! {
         "$match": doc! {"visible": true, "homepage": true}
@@ -43,7 +44,10 @@ impl ListingService {
       Err(_e) => Err(String::from("Error while getting listings")),
     }
   }
-  pub fn get_for_seller(&self, seller: &str) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
+  pub fn get_for_seller(
+    &self,
+    seller: &str,
+  ) -> Result<std::vec::Vec<bson::ordered::OrderedDocument>, String> {
     let pipeline = vec![
       doc! {
         "$match": doc! {"visible": true, "seller_id": ObjectId::with_string(seller).expect("seller_id not valid")}
@@ -75,5 +79,17 @@ impl ListingService {
       }
       Err(_e) => Err(String::from("Error while getting listings")),
     }
+  }
+}
+
+impl Finder for ListingService {
+  fn find(
+    &self,
+    id: &str,
+  ) -> Result<Option<bson::ordered::OrderedDocument>, mongodb::error::Error> {
+    self.collection.find_one(
+      doc! {"_id": ObjectId::with_string(id).expect("Id not valid")},
+      None,
+    )
   }
 }

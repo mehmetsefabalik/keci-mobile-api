@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
 
 pub async fn get(app_data: web::Data<crate::AppState>) -> impl Responder {
-  let result = web::block(move || app_data.service_container.listing.get()).await;
+  let result = web::block(move || app_data.service_container.listing.get_for_homepage()).await;
   match result {
     Ok(result) => HttpResponse::Ok().json(result),
     Err(e) => {

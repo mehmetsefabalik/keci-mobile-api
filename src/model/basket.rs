@@ -4,12 +4,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BasketItem {
   product_id: ObjectId,
+  seller_id: ObjectId,
+  listing_id: ObjectId,
   count: i16,
 }
 
 impl BasketItem {
-  pub fn new(product_id: ObjectId, count: i16) -> BasketItem {
-    BasketItem { product_id, count }
+  pub fn new(
+    product_id: ObjectId,
+    seller_id: ObjectId,
+    listing_id: ObjectId,
+    count: i16,
+  ) -> BasketItem {
+    BasketItem {
+      product_id,
+      seller_id,
+      listing_id,
+      count,
+    }
   }
 }
 

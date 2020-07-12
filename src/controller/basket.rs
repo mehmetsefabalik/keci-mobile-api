@@ -1,11 +1,11 @@
 use crate::action::basket::{add_to_basket, decrement_product_count};
-use crate::action::user::create_anon_with_basket;
+use crate::{action::user::create_anon_with_basket, traits::service::Finder};
 use actix_web::{http, web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Body {
-  pub product_id: String,
+  pub listing_id: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -25,14 +25,29 @@ pub async fn add(
       match user_id_header.to_str() {
         Ok(user_id_str) => {
           let user_id = String::from(user_id_str);
-          let result = web::block(move || {
-            add_to_basket(
-              app_data.service_container.basket.clone(),
-              user_id.clone(),
-              body.product_id.clone(),
+          let result =
+            web::block(
+              move || match app_data.service_container.listing.find(&body.listing_id) {
+                Ok(listing_option) => match listing_option {
+                  Some(listing) => match listing.get_object_id("product_id") {
+                    Ok(product_id) => match listing.get_object_id("seller_id") {
+                      Ok(seller_id) => add_to_basket(
+                        app_data.service_container.basket.clone(),
+                        user_id.clone(),
+                        product_id.to_string(),
+                        seller_id.to_string(),
+                        body.listing_id.clone(),
+                      ),
+                      Err(_e) => Err("Error while getting seller_id".to_string()),
+                    },
+                    Err(_e) => Err("Error while getting product_id".to_string()),
+                  },
+                  None => Err("Listing not exists".to_string()),
+                },
+                Err(_e) => Err("Error while getting listing".to_string()),
+              },
             )
-          })
-          .await;
+            .await;
 
           match result {
             Ok(_response) => HttpResponse::Ok().finish(),
@@ -50,14 +65,29 @@ pub async fn add(
     }
     None => {
       // anon
-      let result = web::block(move || {
-        create_anon_with_basket(
-          app_data.service_container.user.clone(),
-          app_data.service_container.basket.clone(),
-          body.product_id.clone(),
+      let result =
+        web::block(
+          move || match app_data.service_container.listing.find(&body.listing_id) {
+            Ok(listing_option) => match listing_option {
+              Some(listing) => match listing.get_object_id("product_id") {
+                Ok(product_id) => match listing.get_object_id("seller_id") {
+                  Ok(seller_id) => create_anon_with_basket(
+                    app_data.service_container.user.clone(),
+                    app_data.service_container.basket.clone(),
+                    product_id.to_string(),
+                    seller_id.to_string(),
+                    body.listing_id.clone(),
+                  ),
+                  Err(_e) => Err("Error while getting seller_id".to_string()),
+                },
+                Err(_e) => Err("Error while getting product_id".to_string()),
+              },
+              None => Err("Listing not exists".to_string()),
+            },
+            Err(_e) => Err("Error while getting listing".to_string()),
+          },
         )
-      })
-      .await;
+        .await;
 
       match result {
         Ok(cookie) => HttpResponse::Ok()
@@ -66,10 +96,10 @@ pub async fn add(
             http::header::HeaderValue::from_str(&cookie).unwrap(),
           )
           .finish(),
-          Err(e) => {
-            println!("{:?}", e);
-            HttpResponse::InternalServerError().finish()
-          }
+        Err(e) => {
+          println!("{:?}", e);
+          HttpResponse::InternalServerError().finish()
+        }
       }
     }
   }
@@ -107,7 +137,7 @@ pub async fn get_active(
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct UpdateBody {
-  pub product_id: String,
+  pub listing_id: String,
   pub count: i32,
 }
 
@@ -121,13 +151,33 @@ pub async fn update(
       Ok(user_id_str) => {
         let user_id = String::from(user_id_str);
         if body.count > 0 {
-          let update_product_count_response = web::block(move || {
-            app_data
-              .service_container
-              .basket
-              .update_product_count(&body.product_id, &user_id, 1)
-          })
-          .await;
+          let update_product_count_response =
+            web::block(
+              move || match app_data.service_container.listing.find(&body.listing_id) {
+                Ok(listing_option) => match listing_option {
+                  Some(listing) => match listing.get_object_id("product_id") {
+                    Ok(product_id) => match listing.get_object_id("seller_id") {
+                      Ok(seller_id) => {
+                        match app_data.service_container.basket.update_product_count(
+                          &product_id.to_string(),
+                          &seller_id.to_string(),
+                          &user_id,
+                          1,
+                        ) {
+                          Ok(response) => Ok(response),
+                          Err(_e) => Err("Error while updating product count".to_string()),
+                        }
+                      }
+                      Err(_e) => Err("Error while getting seller_id".to_string()),
+                    },
+                    Err(_e) => Err("Error while getting product_id".to_string()),
+                  },
+                  None => Err("Listing not exists".to_string()),
+                },
+                Err(_e) => Err("Error while getting listing".to_string()),
+              },
+            )
+            .await;
 
           match update_product_count_response {
             Ok(option) => match option {
@@ -140,14 +190,33 @@ pub async fn update(
             }
           }
         } else {
-          let decrement_product_count_result = web::block(move || {
-            decrement_product_count(
-              &app_data.service_container.basket,
-              &body.product_id,
-              &user_id,
+          let decrement_product_count_result =
+            web::block(
+              move || match app_data.service_container.listing.find(&body.listing_id) {
+                Ok(listing_option) => match listing_option {
+                  Some(listing) => match listing.get_object_id("product_id") {
+                    Ok(product_id) => match listing.get_object_id("seller_id") {
+                      Ok(seller_id) => {
+                        match decrement_product_count(
+                          &app_data.service_container.basket,
+                          &product_id.to_string(),
+                          &seller_id.to_string(),
+                          &user_id,
+                        ) {
+                          Ok(response) => Ok(response),
+                          Err(_e) => Err("Error while decrementing product count".to_string()),
+                        }
+                      }
+                      Err(_e) => Err("Error while getting seller_id".to_string()),
+                    },
+                    Err(_e) => Err("Error while getting product_id".to_string()),
+                  },
+                  None => Err("Listing not exists".to_string()),
+                },
+                Err(_e) => Err("Error while getting listing".to_string()),
+              },
             )
-          })
-          .await;
+            .await;
 
           match decrement_product_count_result {
             Ok(_response) => HttpResponse::Ok().finish(),
