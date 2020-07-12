@@ -65,7 +65,14 @@ async fn run(client: Client) -> std::io::Result<()> {
     );
     App::new()
       .data(AppState { service_container })
-      .service(web::scope("/listings").route("", web::get().to(controller::listing::get)))
+      .service(
+        web::scope("/listings")
+          .route("", web::get().to(controller::listing::get))
+          .route(
+            "{seller}",
+            web::get().to(controller::listing::get_for_seller),
+          ),
+      )
       .service(
         web::scope("/basket")
           .wrap(middleware::user::Resolve)
