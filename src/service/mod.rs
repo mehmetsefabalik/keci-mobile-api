@@ -3,3 +3,4 @@ pub mod user;
 pub mod basket;
 pub mod address;
 pub mod order;
+pub mod seller;

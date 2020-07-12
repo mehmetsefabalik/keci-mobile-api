@@ -4,6 +4,7 @@ use service::address::AddressService;
 use service::basket::BasketService;
 use service::listing::ListingService;
 use service::order::OrderService;
+use service::seller::SellerService;
 use service::user::UserService;
 
 mod action;
@@ -19,6 +20,7 @@ pub struct ServiceContainer {
   listing: ListingService,
   user: UserService,
   order: OrderService,
+  seller: SellerService,
 }
 
 impl ServiceContainer {
@@ -28,6 +30,7 @@ impl ServiceContainer {
     listing: ListingService,
     user: UserService,
     order: OrderService,
+    seller: SellerService,
   ) -> Self {
     ServiceContainer {
       address,
@@ -35,6 +38,7 @@ impl ServiceContainer {
       listing,
       user,
       order,
+      seller,
     }
   }
 }
@@ -54,6 +58,7 @@ async fn run(client: Client) -> std::io::Result<()> {
   let basket_collection = db.collection(dotenv!("DB_BASKET_COLLECTION"));
   let address_collection = db.collection(dotenv!("DB_ADDRESS_COLLECTION"));
   let order_collection = db.collection(dotenv!("DB_ORDER_COLLECTION"));
+  let seller_collection = db.collection(dotenv!("DB_SELLER_COLLECTION"));
 
   HttpServer::new(move || {
     let service_container = ServiceContainer::new(
@@ -62,6 +67,7 @@ async fn run(client: Client) -> std::io::Result<()> {
       ListingService::new(listing_collection.clone()),
       UserService::new(user_collection.clone()),
       OrderService::new(order_collection.clone()),
+      SellerService::new(seller_collection.clone()),
     );
     App::new()
       .data(AppState { service_container })
@@ -102,6 +108,11 @@ async fn run(client: Client) -> std::io::Result<()> {
           .route("", web::post().to(controller::order::create))
           .route("/{id}", web::get().to(controller::order::find))
           .route("", web::get().to(controller::order::get_all)),
+      )
+      .service(
+        web::scope("/sellers")
+          .wrap(middleware::user::Resolve)
+          .route("/{name}", web::get().to(controller::seller::get)),
       )
   })
   .bind("0.0.0.0:3003")?
