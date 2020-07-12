@@ -111,7 +111,6 @@ async fn run(client: Client) -> std::io::Result<()> {
       )
       .service(
         web::scope("/sellers")
-          .wrap(middleware::user::Resolve)
           .route("/{name}", web::get().to(controller::seller::get)),
       )
   })
