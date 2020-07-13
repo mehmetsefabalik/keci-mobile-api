@@ -32,7 +32,7 @@ impl UserService {
   ) -> Result<UpdateResult, Error> {
     self.collection.update_one(
       doc! {"_id": ObjectId::with_string(&user_id).expect("Id not valid")},
-      doc! {"$set": {"phone": String::from(phone), "password": String::from(password)}, "updated_at": chrono::Utc::now()},
+      doc! {"$set": {"phone": String::from(phone), "password": String::from(password)}},
       None,
     )
   }

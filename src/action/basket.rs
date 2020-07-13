@@ -43,7 +43,7 @@ fn user_has_active_basket(
   listing_id: &str,
   user_id: &str,
 ) -> Result<String, String> {
-  match basket_service.update_product_count(product_id, seller_id, user_id, 1) {
+  match basket_service.update_product_count(listing_id, user_id, 1) {
     Ok(update) => match update {
       Some(_doc) => Ok("Product count is incremented successfully".to_string()),
       None => {
@@ -88,24 +88,22 @@ fn user_does_not_have_active_basket(
 
 pub fn decrement_product_count(
   basket_service: &BasketService,
-  product_id: &str,
-  seller_id: &str,
+  listing_id: &str,
   user_id: &str,
 ) -> Result<String, Error> {
   match basket_service.get_product_with_count_one(
-    product_id.to_string(),
-    seller_id.to_string(),
+    listing_id.to_string(),
     user_id.to_string(),
   ) {
     Ok(option) => match option {
-      Some(_document) => match basket_service.remove_product(product_id, seller_id, user_id) {
+      Some(_document) => match basket_service.remove_product(listing_id, user_id) {
         Ok(_update) => Ok("Product is removed successfuly".to_string()),
         Err(e) => {
           println!("product can not be removed: {}", e);
           Err(e)
         }
       },
-      None => match basket_service.update_product_count(product_id, seller_id, user_id, -1) {
+      None => match basket_service.update_product_count(listing_id, user_id, -1) {
         Ok(_document) => Ok("Product count is decremented successfuly".to_string()),
         Err(e) => {
           println!("product can not be decremented: {}", e);

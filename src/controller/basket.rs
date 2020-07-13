@@ -151,33 +151,17 @@ pub async fn update(
       Ok(user_id_str) => {
         let user_id = String::from(user_id_str);
         if body.count > 0 {
-          let update_product_count_response =
-            web::block(
-              move || match app_data.service_container.listing.find(&body.listing_id) {
-                Ok(listing_option) => match listing_option {
-                  Some(listing) => match listing.get_object_id("product_id") {
-                    Ok(product_id) => match listing.get_object_id("seller_id") {
-                      Ok(seller_id) => {
-                        match app_data.service_container.basket.update_product_count(
-                          &product_id.to_string(),
-                          &seller_id.to_string(),
-                          &user_id,
-                          1,
-                        ) {
-                          Ok(response) => Ok(response),
-                          Err(_e) => Err("Error while updating product count".to_string()),
-                        }
-                      }
-                      Err(_e) => Err("Error while getting seller_id".to_string()),
-                    },
-                    Err(_e) => Err("Error while getting product_id".to_string()),
-                  },
-                  None => Err("Listing not exists".to_string()),
-                },
-                Err(_e) => Err("Error while getting listing".to_string()),
-              },
-            )
-            .await;
+          let update_product_count_response = web::block(move || {
+            match app_data.service_container.basket.update_product_count(
+              &body.listing_id,
+              &user_id,
+              1,
+            ) {
+              Ok(response) => Ok(response),
+              Err(_e) => Err("Error while updating product count".to_string()),
+            }
+          })
+          .await;
 
           match update_product_count_response {
             Ok(option) => match option {
@@ -190,33 +174,17 @@ pub async fn update(
             }
           }
         } else {
-          let decrement_product_count_result =
-            web::block(
-              move || match app_data.service_container.listing.find(&body.listing_id) {
-                Ok(listing_option) => match listing_option {
-                  Some(listing) => match listing.get_object_id("product_id") {
-                    Ok(product_id) => match listing.get_object_id("seller_id") {
-                      Ok(seller_id) => {
-                        match decrement_product_count(
-                          &app_data.service_container.basket,
-                          &product_id.to_string(),
-                          &seller_id.to_string(),
-                          &user_id,
-                        ) {
-                          Ok(response) => Ok(response),
-                          Err(_e) => Err("Error while decrementing product count".to_string()),
-                        }
-                      }
-                      Err(_e) => Err("Error while getting seller_id".to_string()),
-                    },
-                    Err(_e) => Err("Error while getting product_id".to_string()),
-                  },
-                  None => Err("Listing not exists".to_string()),
-                },
-                Err(_e) => Err("Error while getting listing".to_string()),
-              },
-            )
-            .await;
+          let decrement_product_count_result = web::block(move || {
+            match decrement_product_count(
+              &app_data.service_container.basket,
+              &body.listing_id,
+              &user_id,
+            ) {
+              Ok(response) => Ok(response),
+              Err(_e) => Err("Error while decrementing product count".to_string()),
+            }
+          })
+          .await;
 
           match decrement_product_count_result {
             Ok(_response) => HttpResponse::Ok().finish(),
