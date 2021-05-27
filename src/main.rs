@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{web, App, {middleware::Logger}, HttpServer};
 use mongodb::{options::ClientOptions, Client};
 use service::address::AddressService;
 use service::basket::BasketService;
@@ -6,6 +6,7 @@ use service::listing::ListingService;
 use service::order::OrderService;
 use service::seller::SellerService;
 use service::user::UserService;
+use env_logger::Env;
 
 mod action;
 mod controller;
@@ -70,6 +71,8 @@ async fn run(client: Client) -> std::io::Result<()> {
       SellerService::new(seller_collection.clone()),
     );
     App::new()
+      .wrap(Logger::default())
+      .wrap(Logger::new("%a %{User-Agent}i"))
       .data(AppState { service_container })
       .service(
         web::scope("/listings")
@@ -123,5 +126,9 @@ fn main() -> std::io::Result<()> {
   println!("number of cpus: {}", num_cpus::get());
   let client_options = ClientOptions::parse(dotenv!("DB_URL")).unwrap();
   let client = Client::with_options(client_options).unwrap();
+  env_logger::Builder::from_env(
+    Env::default().default_filter_or(dotenv!("LOG_LEVEL")))
+      .init();
+
   run(client)
 }
